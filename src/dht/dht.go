@@ -3,30 +3,56 @@ package dht
 import "crypto/sha1"
 import "math/big"
 
-type Peer struct {
-	NodeID *big.Int
-	Address int
+type User struct {
+	Node DhtNode
+	Name string
+}
+
+type DhtNode struct {
+	# we store the username => ip addr
+	# sha1(username)
+	Hostname string
 	Port int
-	Table DHT
+	NodeId *big.Int # sha1(hostname)
+	Table interface{}
 }
 
-type DHT struct {
+type AnnouceUserArgs struct {
+	QueryingNodeId *big.Int
+	QueryingHostname string
+	AnnoucedUsername string
 }
 
-func (dht *DHT) Ping() {
+type AnnouceUserReply struct {
+	QueriedNodeId *big.int
 }
 
-func (dht *DHT) Store() {
+type FindNodeArgs struct {
+	QueryingNodeId *big.Int
+	TargetNodeId *big.Int
 }
 
-func (dht *DHT) FindNode() {
-}
-
-func (dht *DHT) FindValue() {
-}
-
-func MakePeer() {
+type FindNodeArgs struct {
 	
+}
+
+//=======
+
+func (node *DhtNode) AnnouceUser(AnnouceUserArgs *args, AnnouceUserReply *reply) {
+}
+
+func (node *DhtNode) FindNode() {
+}
+
+func (node *DhtNode) GetUser() {
+}
+
+//=========
+
+func MakeNode(host string, port int, username string) {
+	nodeid := Sha1(username)
+	table := &DHT{}
+	peer := Peer{Address: host, Port: port, NodeID: nodeid, Table: table}
 }
 
 func Sha1(s string) *big.Int {
