@@ -2,6 +2,7 @@ package dht
 
 import "crypto/sha1"
 import "math/big"
+import "list"
 
 type User struct {
 	Node DhtNode
@@ -9,17 +10,15 @@ type User struct {
 }
 
 type DhtNode struct {
-	# we store the username => ip addr
-	# sha1(username)
-	Hostname string
+	IpAddr string
 	Port int
-	NodeId *big.Int # sha1(hostname)
+	NodeId *big.Int # sha1(ip)
 	Table interface{}
 }
 
 type AnnouceUserArgs struct {
 	QueryingNodeId *big.Int
-	QueryingHostname string
+	QueryingIpAddr string
 	AnnoucedUsername string
 }
 
@@ -32,8 +31,27 @@ type FindNodeArgs struct {
 	TargetNodeId *big.Int
 }
 
-type FindNodeArgs struct {
-	
+type FindNodeReply struct {
+	QueriedNodeId *big.Int
+	TryNodes string[] // if list is of length 1, then we found it
+}
+
+type GetUserArgs struct {
+	QueryingNodeId *big.Int
+	TargetUsername *big.Int
+}
+
+type GetUserReply struct {
+	QueriedNodeId *big.Int
+	TryNodes string[] // if list is of length 1, then we found it
+}
+
+type PingArgs struct {
+	PingingNodeId *big.Int
+}
+
+type PingReply struct {
+	PingedNodeId *big.Int
 }
 
 //=======
@@ -41,10 +59,13 @@ type FindNodeArgs struct {
 func (node *DhtNode) AnnouceUser(AnnouceUserArgs *args, AnnouceUserReply *reply) {
 }
 
-func (node *DhtNode) FindNode() {
+func (node *DhtNode) FindNode(FindNodeArgs *args, FindNodeReply *reply) {
 }
 
-func (node *DhtNode) GetUser() {
+func (node *DhtNode) GetUser(GetUserArgs *args, GetUserReply *reply) {
+}
+
+func (node *DhtNode) Ping(PingArgs *args, PingReply *reply) {
 }
 
 //=========
