@@ -7,13 +7,15 @@ import "list"
 type User struct {
 	Node DhtNode
 	Name string
+	Message map[string]string
 }
 
 type DhtNode struct {
 	IpAddr string
 	Port int
 	NodeId *big.Int # sha1(ip)
-	Table interface{}
+	RoutingTable interface{}
+	KV map[string]string
 }
 
 type AnnouceUserArgs struct {
