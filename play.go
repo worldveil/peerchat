@@ -1,11 +1,37 @@
 package main
 
-import "dht"
+// import "dht"
 import "fmt"
+// import "crypto/sha1"
+// import "math"
+
+
+func find_n(a, b uint64) uint{
+	var IDLen uint
+	IDLen = 64
+	var d, diff uint64
+	diff = a ^ b
+	var i uint
+	for i = 0; i < IDLen; i++{
+		d = 1<<(IDLen - 1 - i)
+		if d & diff != 0 { // if true, return i
+			break
+		}
+	}
+	fmt.Println(i)
+	return i
+}
+
+type myStruct struct{
+	a int
+	b string
+}
 
 func main() {
-	one := dht.Sha1("This is a string")
-	two := dht.Sha1("Also a string")
-	result := dht.Xor(one, two)
-	fmt.Println(one, two, result)
+	arr := make([]myStruct, 0, 5)
+	fmt.Println(arr)
+	
+
+
+	
 }

@@ -1,13 +1,31 @@
 package dht
-
-// import "list"
+import "log"
 
 
 type DhtNode struct {
 	ipAddr string
 	nodeId ID // sha1(ip)
-	routingTable map[ID] string // map from nodeId to IP
+	routingTable [IDLen][]RoutingEntry // map from nodeId to IP- a IDLen X K matrix
+	// set routing table cap to bucket := make([]RoutingEntry, 0,K)
 	kv map[string]string // map from username to IP
+}
+
+//this gets called when another node is contacting this node through any API method!
+func (node *DhtNode) updateRoutingTable(nodeId ID, ipAddr string) {
+	entry := RoutingEntry{nodeId: nodeId, ipAddr: ipAddr}
+	n := find_n(nodeId, node.nodeId)
+	bucket := &routingTable[n]
+	//check if node is in routing table
+	if len(bucket) < K {
+		bucket[len(bucket)] = entry
+	} else {
+		for i := K -1; i >=0; i--{
+			if ! node.Ping(bucket[i].ipAddr) {
+				bucket[i] = entry
+				break
+			}
+		}
+	}
 }
 
 // AnnouceUser RPC handlers
@@ -41,14 +59,21 @@ func (node *DhtNode) GetUser(username string) string {
 
 // Ping RPC handlers
 func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
+	reply.PingedNodeId = node.nodeId
 	return nil
 }
 
 // Ping RPC API
-func (node *DhtNode) Ping(nodeId ID) {
+//assume you already have them in routing table
+func (node *DhtNode) Ping(ipAddr string) {
+	args = &PingArgs{PingingNodeId: node.nodeId}
+	var reply PingReply
+	ok := call(ipAddr, "DhtNode.PingHandler", args, &reply)
+	return ok
 }
 
-func MakeNode(myIpAddr string, routingTable map[ID]string) *DhtNode{
+
+func MakeNode(myIpAddr string, routingTable [IDLen][]RoutingEntry) *DhtNode{
 	node := &DhtNode{ipAddr: myIpAddr, nodeId: Sha1(myIpAddr), routingTable: routingTable}
 	node.kv = make(map[string]string)
 	return node

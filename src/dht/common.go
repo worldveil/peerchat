@@ -1,7 +1,6 @@
 package dht
 
 import "time"
-import "math/big"
 import "crypto/sha1"
 import "net/rpc"
 import "fmt"
@@ -12,7 +11,17 @@ const (
 )
 type Status string
 
-type ID *big.Int
+const (
+	IDLen = 64
+	K = 8
+)
+
+type RoutingEntry struct {
+	ipAddr string
+	nodeId ID
+}
+
+type ID uint64
 
 type SendMessageArgs struct {
 	Content string
@@ -26,61 +35,81 @@ type SendMessageReply struct {
 }
 
 type AnnouceUserArgs struct {
-	QueryingNodeId *big.Int
+	QueryingNodeId ID
 	QueryingIpAddr string
 	AnnoucedUsername string
 }
 
 type AnnouceUserReply struct {
-	QueriedNodeId *big.Int
+	QueriedNodeId ID
 }
 
 type FindNodeArgs struct {
-	QueryingNodeId *big.Int
-	TargetNodeId *big.Int
+	QueryingNodeId ID
+	TargetNodeId ID
 }
 
 type FindNodeReply struct {
-	QueriedNodeId *big.Int
+	QueriedNodeId ID
 	TryNodes []string // if list is of length 1, then we found it
 }
 
 type GetUserArgs struct {
-	QueryingNodeId *big.Int
-	TargetUsername *big.Int
+	QueryingNodeId ID
+	TargetUsername ID
 }
 
 type GetUserReply struct {
-	QueriedNodeId *big.Int
+	QueriedNodeId ID
 	TryNodes []string // if list is of length 1, then we found it
 }
 
 type PingArgs struct {
-	PingingNodeId *big.Int
+	PingingNodeId ID
 }
 
 type PingReply struct {
-	PingedNodeId *big.Int
+	PingedNodeId ID
 }
 
-func Sha1(s string) *big.Int {
+func Sha1(s string) ID {
 	/*
 		Returns a 160 bit integer based on a
 		string input. 
 	*/
     h := sha1.New()
-    h.Write([]byte(s))
+    h.Write([]byte("hi"))
     bs := h.Sum(nil)
-    bi := new(big.Int).SetBytes(bs)
-    return bi
+    l := len(bs)
+    var a ID
+	for i, b := range bs {
+	    shift := ID((l-i-1) * 8)	
+	    a |= ID(b) << shift
+   	}
+   	return a
 }
 
-func Xor(a, b *big.Int) *big.Int {
+func Xor(a, b ID) ID {
 	/*
 		Zors together two big.Ints and
 		returns the result.
 	*/
-	return new(big.Int).Xor(a, b)
+	return a ^ b
+}
+
+func find_n(a, b uint64) uint{
+	var IDLen uint
+	IDLen = 64
+	var d, diff uint64
+	diff = a ^ b
+	var i uint
+	for i = 0; i < IDLen; i++{
+		d = 1<<(IDLen - 1 - i)
+		if d & diff != 0 { // if true, return i
+			break
+		}
+	}
+	return i
 }
 
 // call() sends an RPC to the rpcname handler on server srv
