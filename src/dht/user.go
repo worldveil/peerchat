@@ -2,12 +2,88 @@ package dht
 
 import "fmt"
 import "time"
-
+import "os"
+import "encoding/gob"
 
 type User struct {
 	node *DhtNode
 	name string
 	// messageHistory map[string]string
+}
+
+const PEERCHAT_USERDATA_DIR = "/var/temp/"
+
+func UsernameToPath(username string) {
+	/*
+		Given a username, returns the filepath
+		where the backup will be located.
+	*/
+	return PEERCHAT_USERDATA_DIR
+			+ os.PathSeparator
+			+ u.name + ".gob"
+}
+
+func (u *User) Serialize() {
+	/*
+		Serializes this User struct.
+	*/
+	path = UsernameToPath(u.name)
+	encodeFile, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+
+	// encode and write to file
+	encoder := gob.NewEncoder(encodeFile)
+	if err := encoder.Encode(node); err != nil {
+		panic(err)
+	}
+	encodeFile.Close()
+}
+
+func Deserialize(username string) *DhtNode {
+	/*
+		Deserializes a DhtNode and loads
+		it into a new DhtNode, which is 
+		returned. 
+	*/
+	path = UsernameToPath(username)
+	decodeFile, err := os.Open(path)
+	if err != nil {
+		panic(err)
+	}
+	defer decodeFile.Close()
+
+	// create decoder
+	decoder := gob.NewDecoder(decodeFile)
+	newNode := new(DhtNode)
+	decoder.Decode(&newNode)
+	return newNode
+}
+
+func LoadTable(username, myIpAddr string) *User {
+	/*
+		This method loads the User struct for a given 
+		username from disk, checking if there needs to 
+		be a reconfiguration of the routing table or not
+		and acting appropriately. 
+	*/
+	// first deserialize the old User struct from disk
+	user := Deserialize(username)
+	
+	// check and see if ipaddr is the same as the old one
+	// if so, we don't need to change anything
+	if user.node.IpAddr == myIpAddr {
+		return user
+	
+	// we need to change nodeId and update routing table
+	} else {
+		// otherwise, create a new nodeId
+		user.node.nodeId = Sha1(myIpAddr)
+		
+		// and rearrange the table based on new nodeId
+		// ... 
+	}
 }
 
 //SendMessage RPC Handler
@@ -31,12 +107,6 @@ func (user *User) SendMessage(username string, content string){
 
 func (user *User) CheckStatus(ipAddr string) Status {
 	return Online
-}
-
-func loadTable(username string) [IDLen][]RoutingEntry{
-	table := [IDLen][]RoutingEntry{}
-	// todo: load user specific routing from file or hard code or w/e
-	return table
 }
 
 func Login(username string, userIpAddr string) *User{

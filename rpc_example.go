@@ -14,7 +14,7 @@ func main() {
 	//sync()
 	//async()
 	//stack_ex()
-	startChat()
+	//startChat()
 }
 
 func sync() {

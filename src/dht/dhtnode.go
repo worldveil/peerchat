@@ -5,7 +5,7 @@ import "log"
 import "github.com/pmylund/sortutil"
 
 type DhtNode struct {
-	ipAddr string
+	IpAddr string
 	nodeId ID // sha1(ip)
 	routingTable [IDLen][]RoutingEntry // map from nodeId to IP- a IDLen X K matrix
 	// set routing table cap to bucket := make([]RoutingEntry, 0,K)
@@ -17,9 +17,9 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 }
 
 //this gets called when another node is contacting this node through any API method!
-func (node *DhtNode) updateRoutingTable(nodeId ID, ipAddr string) {
+func (node *DhtNode) updateRoutingTable(nodeId ID, IpAddr string) {
 	// ordering of K bucket is from LRS to MRS
-	entry := RoutingEntry{nodeId: nodeId, ipAddr: ipAddr}
+	entry := RoutingEntry{nodeId: nodeId, IpAddr: IpAddr}
 	n := find_n(nodeId, node.nodeId) // n is the bucket index- index of first bit that doesn't match
 	bucket := node.routingTable[n]
 	defer func(){node.routingTable[n] = bucket}()
@@ -34,7 +34,7 @@ func (node *DhtNode) updateRoutingTable(nodeId ID, ipAddr string) {
 		bucket = append(bucket, entry)
 	} else { // bucket is full
 		// ping the front of list (LRS)
-		if ! node.Ping(bucket[0].ipAddr){
+		if ! node.Ping(bucket[0].IpAddr){
 			bucket[0] = entry //if does not respond, replace
 		}
 		bucket = moveToEnd(bucket, 0)	// move to end
@@ -146,7 +146,7 @@ func (node *DhtNode) sendFindNodeQuery(entry RoutingEntry, replyChannel chan *Fi
 	var reply FindNodeReply
 	
 	for !ok {
-		ok = call(entry.ipAddr, "DhtNode.FindNodeHandler", args, &reply)
+		ok = call(entry.IpAddr, "DhtNode.FindNodeHandler", args, &reply)
 		if !ok {
 			log.Printf("Failed! Will try again.")
 		}
@@ -178,16 +178,16 @@ func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
 
 // Ping RPC API
 //assume you already have them in routing table
-func (node *DhtNode) Ping(ipAddr string) bool{
+func (node *DhtNode) Ping(IpAddr string) bool{
 	args := &PingArgs{QueryingNodeId: node.nodeId}
 	var reply PingReply
-	ok := call(ipAddr, "DhtNode.PingHandler", args, &reply)
+	ok := call(IpAddr, "DhtNode.PingHandler", args, &reply)
 	return ok
 }
 
 
 func MakeNode(myIpAddr string, routingTable [IDLen][]RoutingEntry) *DhtNode{
-	node := &DhtNode{ipAddr: myIpAddr, nodeId: Sha1(myIpAddr), routingTable: routingTable}
+	node := &DhtNode{IpAddr: myIpAddr, nodeId: Sha1(myIpAddr), routingTable: routingTable}
 	node.kv = make(map[string]string)
 	return node
 }
