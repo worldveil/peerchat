@@ -14,6 +14,7 @@ type Status string
 const (
 	IDLen = 64
 	K = 8
+	Alpha = 3
 )
 
 type RoutingEntry struct {
@@ -46,6 +47,7 @@ type AnnouceUserReply struct {
 
 type FindNodeArgs struct {
 	QueryingNodeId ID
+	QueryingIpAddr string
 	TargetNodeId ID
 }
 
@@ -56,6 +58,7 @@ type FindNodeReply struct {
 
 type GetUserArgs struct {
 	QueryingNodeId ID
+	QueryingIpAddr string
 	TargetUsername ID
 }
 
@@ -65,11 +68,12 @@ type GetUserReply struct {
 }
 
 type PingArgs struct {
-	PingingNodeId ID
+	QueryingNodeId ID
+	QueryingIpAddr string
 }
 
 type PingReply struct {
-	PingedNodeId ID
+	QueriedNodeId ID
 }
 
 func Sha1(s string) ID {
@@ -97,10 +101,10 @@ func Xor(a, b ID) ID {
 	return a ^ b
 }
 
-func find_n(a, b uint64) uint{
+func find_n(a, b ID) uint{
 	var IDLen uint
 	IDLen = 64
-	var d, diff uint64
+	var d, diff ID
 	diff = a ^ b
 	var i uint
 	for i = 0; i < IDLen; i++{

@@ -33,8 +33,8 @@ func (user *User) CheckStatus(ipAddr string) Status {
 	return Online
 }
 
-func loadTable(username string) map[ID]string{
-	table := make(map[ID]string)
+func loadTable(username string) [IDLen][]RoutingEntry{
+	table := [IDLen][]RoutingEntry{}
 	// todo: load user specific routing from file or hard code or w/e
 	return table
 }
