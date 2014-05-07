@@ -1,6 +1,8 @@
 package dht
-import "fmt"
-import "lang"
+
+//import "lang"
+import "log"
+import "github.com/pmylund/sortutil"
 
 type DhtNode struct {
 	ipAddr string
@@ -40,49 +42,37 @@ func (node *DhtNode) updateRoutingTable(nodeId ID, ipAddr string) {
 }
 
 // get the alpha closest nodes to node ID in order to find user/node
-func (node *DhtNode) getAlphaClosest(nodeId ID) []RoutingEntry{
-	res := make([]RoutingEntry, 0, Alpha)
-	orig_n := find_n(nodeId, node.nodeId)
-	n := orig_n
-	increasing_n := true
-	for len(res) < Alpha{ //need to keep looping over buckets until res is filled
-		bucket := node.routingTable[n]
+// returns a slice of RoutingEntriesDist sorted in increasing order of dist from 
+func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []RoutingEntry{
+	res := make([]RoutingEntryDist, 0, target_result_len)
+	orig_bucket_idx := find_n(targetNodeId, node.nodeId)
+	bucket_idx := orig_bucket_idx
+	increasing_bucket := true
+	for len(res) < target_result_len{ //need to keep looping over buckets until res is filled
+		bucket := node.routingTable[bucket_idx]
 		for _, value := range(bucket){
-			if len(res) < Alpha {
-				res = append(res, value)
-			}else{ //bucket is full
-				xor := Xor(nodeId, value.nodeId)
-				need_to_replace := false
-				var max_dist ID
-				max_dist = 0
-				max_idx := 0
-				for idx, res_value := range(res) {
-					res_val_distance := Xor(nodeId, res_value.nodeId)
-					if xor < res_val_distance{ // current value is closer than what's in res
-						need_to_replace = true
-					}
-					if max_dist < res_val_distance{
-						max_dist = res_val_distance
-						max_idx = idx
-					}
-				}
-				if need_to_replace{
-					res[max_idx] = value
+			xor := Xor(targetNodeId, value.nodeId)
+			if len(res) < target_result_len {
+				res = append(res, RoutingEntryDist{routingEntry: value, dist: xor})
+			}else{ //bucket is full	
+				res = sortutil.AscByField(res, "dist")
+				if xor < res[len(res) - 1].dist{
+					res[len(res) - 1] = RoutingEntryDist{routingEntry: value, dist: xor}
 				}
 			}
 		}
-		if n < IDLen - 1 && increasing_n{ // starts increasing
-			n++
-		} else if n == IDLen - 1 && increasing_n{ // stops increasing
-			increasing_n = false
-			n = orig_n - 1
-		} else if n == 0 && ! increasing_n{
+		if bucket_idx < IDLen - 1 && increasing_bucket{ // starts increasing
+			bucket_idx++
+		} else if bucket_idx == IDLen - 1 && increasing_bucket{ // stops increasing
+			increasing_bucket = false
+			bucket_idx = orig_bucket_idx - 1
+		} else if bucket_idx == 0 && ! increasing_bucket{
 			break
 		}else {
-			n--
+			bucket_idx--
 		}
 	}
-	return res
+	return sortutil.AscByField(res, "dist")
 }
 
 // AnnouceUser RPC handlers
@@ -96,54 +86,57 @@ func (node *DhtNode) AnnounceUser(username string, IpAddr string) {
 }
 
 // FindNode RPC handlers
+// all this does is call getClosest on K nodes
+// returns k sorted slice of RoutingEntryDist from my routing table
 func (node *DhtNode) FindNodeHandler(args *FindNodeArgs, reply *FindNodeReply) error {
 	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
 	return nil
 }
 
-// FindNodeRPC API
-func (node *DhtNode) FindNode(nodeId ID) {
-
+// helper function called by both FindUser and AnnounceUser
+// returns the sorted slice of RoutingEntry
+func (node *DhtNode) nodeLookup(nodeId ID) {
 	// get the closest nodes to the desired node ID
 	// then add to a stack. we'll 
-	closestNodes := node.getAlphaClosest(nodeId)
-	closestStack = lang.NewStack()
-	for _, entry := range closestNodes {
-		closestStack.Push(entry)
-	}
+	closestNodes := node.getClosest(Alpha, nodeId)
 
 	// send the initial min(Alpha, # of closest Node)
 	// messages in flight to start the process
-	doneChannel := make(chan *FindNodeReply, Alpha)
+	replyChannel := make(chan *FindNodeReply, Alpha)
+	doneChannel := make(chan bool)
 	sent := 0
-	for i := 0; i < len(closestNodes); i++ {
-		go node.sendFindNodeQuery(closestStack.Pop().(RoutingEntry), doneChannel)
+	for _, entryDist := range closestNodes{
+		go node.sendFindNodeQuery(entryDist.routingEntry, replyChannel)
 		sent++
 	}
 
 	// now process replies as they arrive, spinning off new
 	// requests up to alpha requests
-	done := false
-	for !done {
-		reply := <-doneChannel
+	for {
+		select {
+		case <-doneChannel:
+			break
+		case reply := <-replyChannel:
+			// process the reply, see if we are done
+			// if we need to break because of stop cond: send done channel
+			reply.TryNodes
+			sent--
 
-		// process the reply, see if we are done
-		// ... ???
-		sent--
-
-		// then check to see if we are still under
-		// the total of alpha messages still in flight
-		// and if so, send more
-		for i := sent; i < Alpha; i++ {
-			go node.sendFindNodeQuery(closestStack.Pop().(RoutingEntry), doneChannel)
-			sent++
+			// then check to see if we are still under
+			// the total of alpha messages still in flight
+			// and if so, send more
+			for i := sent; i < Alpha; i++ {
+				go node.sendFindNodeQuery(closestStack.Pop().(RoutingEntry), replyChannel)
+				sent++
+			}
 		}
+		
 	}
 
 	//return reply.???
 }
 
-func (node *DhtNode) sendFindNodeQuery(entry *RoutingEntry, doneChannel chan *FindeNodeReply) {
+func (node *DhtNode) sendFindNodeQuery(entry RoutingEntry, replyChannel chan *FindNodeReply) {
 	/*
 		This function is generally called as a separate goroutine. At the end of the call, 
 		the reply is added to the done Channel, which is read by a separate thread. 
@@ -160,7 +153,7 @@ func (node *DhtNode) sendFindNodeQuery(entry *RoutingEntry, doneChannel chan *Fi
 	}
 
 	// add refernce to reply onto the channel
-	doneChannel <- &reply
+	replyChannel <- &reply
 }
 
 // GetUser RPC handlers

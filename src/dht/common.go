@@ -22,6 +22,11 @@ type RoutingEntry struct {
 	nodeId ID
 }
 
+type RoutingEntryDist struct {
+	distance ID
+	routingEntry RoutingEntry
+}
+
 type ID uint64
 
 type SendMessageArgs struct {
@@ -53,7 +58,7 @@ type FindNodeArgs struct {
 
 type FindNodeReply struct {
 	QueriedNodeId ID
-	TryNodes []string // if list is of length 1, then we found it
+	TryNodes []RoutingEntryDist // if list is of length 1, then we found it
 }
 
 type GetUserArgs struct {
@@ -64,7 +69,7 @@ type GetUserArgs struct {
 
 type GetUserReply struct {
 	QueriedNodeId ID
-	TryNodes []string // if list is of length 1, then we found it
+	TryNodes []RoutingEntry // if list is of length 1, then we found it
 }
 
 type PingArgs struct {
