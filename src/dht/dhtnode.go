@@ -1,5 +1,6 @@
 package dht
 import "fmt"
+import "lang"
 
 type DhtNode struct {
 	ipAddr string
@@ -15,6 +16,7 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 
 //this gets called when another node is contacting this node through any API method!
 func (node *DhtNode) updateRoutingTable(nodeId ID, ipAddr string) {
+	// ordering of K bucket is from LRS to MRS
 	entry := RoutingEntry{nodeId: nodeId, ipAddr: ipAddr}
 	n := find_n(nodeId, node.nodeId) // n is the bucket index- index of first bit that doesn't match
 	bucket := node.routingTable[n]
@@ -37,22 +39,7 @@ func (node *DhtNode) updateRoutingTable(nodeId ID, ipAddr string) {
 	}
 }
 
-// AnnouceUser RPC handlers
-func (node *DhtNode) AnnouceUserHandler(args *AnnouceUserArgs, reply *AnnouceUserReply) error {
-	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
-	return nil
-}
-
-// AnnouceUser API
-func (node *DhtNode) AnnounceUser(username string, IpAddr string) {
-}
-
-// FindNode RPC handlers
-func (node *DhtNode) FindNodeHandler(args *FindNodeArgs, reply *FindNodeReply) error {
-	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
-	return nil
-}
-
+// get the alpha closest nodes to node ID in order to find user/node
 func (node *DhtNode) getAlphaClosest(nodeId ID) []RoutingEntry{
 	res := make([]RoutingEntry, 0, Alpha)
 	orig_n := find_n(nodeId, node.nodeId)
@@ -98,10 +85,82 @@ func (node *DhtNode) getAlphaClosest(nodeId ID) []RoutingEntry{
 	return res
 }
 
+// AnnouceUser RPC handlers
+func (node *DhtNode) AnnouceUserHandler(args *AnnouceUserArgs, reply *AnnouceUserReply) error {
+	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
+	return nil
+}
+
+// AnnouceUser API
+func (node *DhtNode) AnnounceUser(username string, IpAddr string) {
+}
+
+// FindNode RPC handlers
+func (node *DhtNode) FindNodeHandler(args *FindNodeArgs, reply *FindNodeReply) error {
+	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
+	return nil
+}
+
 // FindNodeRPC API
 func (node *DhtNode) FindNode(nodeId ID) {
-	closest_nodes := node.getAlphaClosest(nodeId)
-	fmt.Println(closest_nodes)
+
+	// get the closest nodes to the desired node ID
+	// then add to a stack. we'll 
+	closestNodes := node.getAlphaClosest(nodeId)
+	closestStack = lang.NewStack()
+	for _, entry := range closestNodes {
+		closestStack.Push(entry)
+	}
+
+	// send the initial min(Alpha, # of closest Node)
+	// messages in flight to start the process
+	doneChannel := make(chan *FindNodeReply, Alpha)
+	sent := 0
+	for i := 0; i < len(closestNodes); i++ {
+		go node.sendFindNodeQuery(closestStack.Pop().(RoutingEntry), doneChannel)
+		sent++
+	}
+
+	// now process replies as they arrive, spinning off new
+	// requests up to alpha requests
+	done := false
+	for !done {
+		reply := <-doneChannel
+
+		// process the reply, see if we are done
+		// ... ???
+		sent--
+
+		// then check to see if we are still under
+		// the total of alpha messages still in flight
+		// and if so, send more
+		for i := sent; i < Alpha; i++ {
+			go node.sendFindNodeQuery(closestStack.Pop().(RoutingEntry), doneChannel)
+			sent++
+		}
+	}
+
+	//return reply.???
+}
+
+func (node *DhtNode) sendFindNodeQuery(entry *RoutingEntry, doneChannel chan *FindeNodeReply) {
+	/*
+		This function is generally called as a separate goroutine. At the end of the call, 
+		the reply is added to the done Channel, which is read by a separate thread. 
+	*/
+	ok := false
+	args := &FindNodeArgs{QueryingNodeId: node.nodeId, QueryingIpAddr: "???", TargetNodeId: entry.nodeId}
+	var reply FindNodeReply
+	
+	for !ok {
+		ok = call(entry.ipAddr, "DhtNode.FindNodeHandler", args, &reply)
+		if !ok {
+			log.Printf("Failed! Will try again.")
+		}
+	}
+
+	// add refernce to reply onto the channel
+	doneChannel <- &reply
 }
 
 // GetUser RPC handlers
