@@ -2,12 +2,57 @@ package dht
 
 import "fmt"
 import "time"
-
+import "os"
+import "encoding/gob"
 
 type User struct {
 	node *DhtNode
 	name string
 	// messageHistory map[string]string
+}
+
+func (node *DhtNode) Serialize(path string) {
+	/*
+		Serializes this DHT node into a file at 
+		location path provided.
+	*/
+	// Create a file for IO
+	encodeFile, err := os.Create(path)
+	if err != nil {
+		panic(err)
+	}
+
+	// encode and write to file
+	encoder := gob.NewEncoder(encodeFile)
+	if err := encoder.Encode(node); err != nil {
+		panic(err)
+	}
+	encodeFile.Close()
+}
+
+func Deserialize(path string) *DhtNode {
+	/*
+		Deserializes a DhtNode and loads
+		it into a new DhtNode, which is 
+		returned. 
+	*/
+	decodeFile, err := os.Open(path)
+	if err != nil {
+		panic(err)
+	}
+	defer decodeFile.Close()
+
+	// create decoder
+	decoder := gob.NewDecoder(decodeFile)
+	newNode := new(DhtNode)
+	decoder.Decode(&newNode)
+	return newNode
+}
+
+func LoadTable(username string) [IDLen][]RoutingEntry{
+	table := [IDLen][]RoutingEntry{}
+	// todo: load user specific routing from file or hard code or w/e
+	return table
 }
 
 //SendMessage RPC Handler
@@ -31,12 +76,6 @@ func (user *User) SendMessage(username string, content string){
 
 func (user *User) CheckStatus(ipAddr string) Status {
 	return Online
-}
-
-func loadTable(username string) [IDLen][]RoutingEntry{
-	table := [IDLen][]RoutingEntry{}
-	// todo: load user specific routing from file or hard code or w/e
-	return table
 }
 
 func Login(username string, userIpAddr string) *User{
