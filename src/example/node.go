@@ -41,6 +41,22 @@ func (node *Node) Ping(address, message string) {
 	}
 }
 
+func (node *Node) AsyncPing(address, message string, doneChannel chan *PingReply) {
+	ok := false
+	args := &PingArgs{Message: message}
+	var reply PingReply
+	
+	for !ok {
+		log.Printf("Sending to node %s message: %s", address, message)
+		ok = call(address, "Node.PingHandler", args, &reply)
+		if !ok {
+			log.Printf("Failed! Will try again.")
+		}
+	}
+	
+	doneChannel <- &reply
+}
+
 func MakeNode(hostname, port string) *Node {
 	/*
 		Takes a hostname and port as an argument for
@@ -102,17 +118,31 @@ func MakeNode(hostname, port string) *Node {
 // please don't change this function.
 //
 func call(srv string, rpcname string, args interface{}, reply interface{}) bool {
-	c, errx := rpc.Dial("tcp", srv)
+	client, errx := rpc.Dial("tcp", srv)
 	if errx != nil {
 		return false
 	}
-	defer c.Close()
+	defer client.Close()
 		
-	err := c.Call(rpcname, args, reply)
+	err := client.Call(rpcname, args, reply)
 	if err == nil {
 		return true
-	} 
+	}
 
 	log.Println(err)
 	return false
+}
+
+func async(srv string, rpcname string, args interface{}, reply interface{}, doneChannel chan *rpc.Call) bool {
+	client, errx := rpc.Dial("tcp", srv)
+	if errx != nil {
+		return false
+	}
+	defer client.Close()
+	
+	// call async, then outer routine will
+	// have to wait for doneChannel to reply
+	client.Go(rpcname, args, reply, doneChannel)
+	
+	return true
 }
