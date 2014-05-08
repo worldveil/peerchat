@@ -6,8 +6,8 @@ import "github.com/pmylund/sortutil"
 
 type DhtNode struct {
 	IpAddr string
-	nodeId ID // sha1(ip)
-	routingTable [IDLen][]RoutingEntry // map from nodeId to IP- a IDLen X K matrix
+	NodeId ID // sha1(ip)
+	RoutingTable [IDLen][]RoutingEntry // map from NodeId to IP- a IDLen X K matrix
 	// set routing table cap to bucket := make([]RoutingEntry, 0,K)
 	kv map[string]string // map from username to IP
 }
@@ -17,12 +17,12 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 }
 
 //this gets called when another node is contacting this node through any API method!
-func (node *DhtNode) updateRoutingTable(nodeId ID, IpAddr string) {
+func (node *DhtNode) updateRoutingTable(NodeId ID, IpAddr string) {
 	// ordering of K bucket is from LRS to MRS
-	entry := RoutingEntry{nodeId: nodeId, IpAddr: IpAddr}
-	n := find_n(nodeId, node.nodeId) // n is the bucket index- index of first bit that doesn't match
-	bucket := node.routingTable[n]
-	defer func(){node.routingTable[n] = bucket}()
+	entry := RoutingEntry{NodeId: NodeId, IpAddr: IpAddr}
+	n := find_n(NodeId, node.NodeId) // n is the bucket index- index of first bit that doesn't match
+	bucket := node.RoutingTable[n]
+	defer func(){node.RoutingTable[n] = bucket}()
 	//check if node is in routing table
 	for idx, r_entry := range(bucket){
 		if r_entry == entry{
@@ -45,13 +45,13 @@ func (node *DhtNode) updateRoutingTable(nodeId ID, IpAddr string) {
 // returns a slice of RoutingEntriesDist sorted in increasing order of dist from 
 func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []RoutingEntry{
 	res := make([]RoutingEntryDist, 0, target_result_len)
-	orig_bucket_idx := find_n(targetNodeId, node.nodeId)
+	orig_bucket_idx := find_n(targetNodeId, node.NodeId)
 	bucket_idx := orig_bucket_idx
 	increasing_bucket := true
 	for len(res) < target_result_len{ //need to keep looping over buckets until res is filled
-		bucket := node.routingTable[bucket_idx]
+		bucket := node.RoutingTable[bucket_idx]
 		for _, value := range(bucket){
-			xor := Xor(targetNodeId, value.nodeId)
+			xor := Xor(targetNodeId, value.NodeId)
 			if len(res) < target_result_len {
 				res = append(res, RoutingEntryDist{routingEntry: value, dist: xor})
 			}else{ //bucket is full	
@@ -95,10 +95,10 @@ func (node *DhtNode) FindNodeHandler(args *FindNodeArgs, reply *FindNodeReply) e
 
 // helper function called by both FindUser and AnnounceUser
 // returns the sorted slice of RoutingEntry
-func (node *DhtNode) nodeLookup(nodeId ID) {
+func (node *DhtNode) nodeLookup(NodeId ID) {
 	// get the closest nodes to the desired node ID
 	// then add to a stack. we'll 
-	closestNodes := node.getClosest(Alpha, nodeId)
+	closestNodes := node.getClosest(Alpha, NodeId)
 
 	// send the initial min(Alpha, # of closest Node)
 	// messages in flight to start the process
@@ -142,7 +142,7 @@ func (node *DhtNode) sendFindNodeQuery(entry RoutingEntry, replyChannel chan *Fi
 		the reply is added to the done Channel, which is read by a separate thread. 
 	*/
 	ok := false
-	args := &FindNodeArgs{QueryingNodeId: node.nodeId, QueryingIpAddr: "???", TargetNodeId: entry.nodeId}
+	args := &FindNodeArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: "???", TargetNodeId: entry.NodeId}
 	var reply FindNodeReply
 	
 	for !ok {
@@ -172,22 +172,22 @@ func (node *DhtNode) GetUser(username string) string {
 // Ping RPC handlers
 func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
 	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
-	reply.QueriedNodeId = node.nodeId
+	reply.QueriedNodeId = node.NodeId
 	return nil
 }
 
 // Ping RPC API
 //assume you already have them in routing table
 func (node *DhtNode) Ping(IpAddr string) bool{
-	args := &PingArgs{QueryingNodeId: node.nodeId}
+	args := &PingArgs{QueryingNodeId: node.NodeId}
 	var reply PingReply
 	ok := call(IpAddr, "DhtNode.PingHandler", args, &reply)
 	return ok
 }
 
 
-func MakeNode(myIpAddr string, routingTable [IDLen][]RoutingEntry) *DhtNode{
-	node := &DhtNode{IpAddr: myIpAddr, nodeId: Sha1(myIpAddr), routingTable: routingTable}
+func MakeNode(myIpAddr string, RoutingTable [IDLen][]RoutingEntry) *DhtNode{
+	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr), RoutingTable: RoutingTable}
 	node.kv = make(map[string]string)
 	return node
 }

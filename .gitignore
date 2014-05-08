@@ -1,4 +1,6 @@
 .DS*
 *.sublime*
 play.go
-
+*.aux
+*.log
+*.gz
