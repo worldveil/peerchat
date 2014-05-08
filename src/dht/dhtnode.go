@@ -23,7 +23,7 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 
 //this gets called when another node is contacting this node through any API method!
 func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
-	Print("DHTHelper", "Node %v calling updateRoutingTable", node.port)
+	Print("DHTHelper", "Node %v calling updateRoutingTable for ip: %s", node.port, entry.ipAddr)
 	// ordering of K bucket is from LRS to MRS
 	n := find_n(entry.nodeId, node.NodeId) // n is the bucket index- index of first bit that doesn't match
 	bucket := node.RoutingTable[n]
@@ -49,7 +49,7 @@ func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
 // get the alpha closest nodes to node ID in order to find user/node
 // returns a slice of RoutingEntriesDist sorted in increasing order of dist from 
 func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []RoutingEntryDist{
-	Print("DHTHelper", "Node %v calling getClosest", node.port)
+	Print("DHTHelper", "Node %v calling getClosest to get %d closest", node.port, target_result_len, Short(targetNodeId))
 	res := make([]RoutingEntryDist, 0, target_result_len)
 	orig_bucket_idx := find_n(targetNodeId, node.NodeId)
 	bucket_idx := orig_bucket_idx
@@ -234,7 +234,7 @@ func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
 // Ping RPC API
 //assume you already have them in routing table
 func (node *DhtNode) Ping(routingEntry RoutingEntry) bool{
-	Print("API", "Node %v calling Ping", node.port)
+	Print("API", "Node %v calling Ping on ip: %s", node.port, routingEntry.ipAddr)
 	args := &PingArgs{QueryingNodeId: node.NodeId}
 	var reply PingReply
 	ok := call(routingEntry.ipAddr, "DhtNode.PingHandler", args, &reply)
