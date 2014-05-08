@@ -93,7 +93,7 @@ func (node *DhtNode) announceUser(username string, ipAddr string) {
 	args := &StoreUserArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: ipAddr, AnnouncedUsername: username}
 	for _, entryDist := range kClosestEntryDists{
 		var reply PingReply
-		ok := call(entryDist.routingEntry.ipAddr, "DhtNode.StoreUserHandler", args, &reply)
+		call(entryDist.routingEntry.ipAddr, "DhtNode.StoreUserHandler", args, &reply)
 	}
 }
 
