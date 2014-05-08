@@ -2,7 +2,6 @@ package dht
 
 import "testing"
 import "runtime"
-import "github.com/pmylund/sortutil"
 
 // Signal failures with the following:
 // t.Fatalf("error message here")
