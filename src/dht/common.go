@@ -30,9 +30,14 @@ func Print(tag string, format string, a ...interface{}) (n int, err error) {
 }
 
 func Short(id ID) string{
-	my_string := strconv.Itoa(int(id << 32))
+	my_int := int(id)
+	if my_int < 0 {
+		my_int = my_int * -1
+	}
+	my_string := strconv.Itoa(my_int)
 	return my_string[:4]
 }
+
 // const (
 // 	OK = "OK"
 // 	WrongNodeID = "WrongNodeID"
@@ -98,7 +103,7 @@ func Sha1(s string) ID {
 		string input. 
 	*/
     h := sha1.New()
-    h.Write([]byte("hi"))
+    h.Write([]byte(s))
     bs := h.Sum(nil)
     l := len(bs)
     var a ID
