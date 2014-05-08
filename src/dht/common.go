@@ -29,9 +29,9 @@ func Print(tag string, format string, a ...interface{}) (n int, err error) {
 }
 
 func Short(id ID) string{
-	my_string := strconv.Itoa(int(id << 32))
-	return my_string[:4]
+	return str(id <<5)
 }
+
 // const (
 // 	OK = "OK"
 // 	WrongNodeID = "WrongNodeID"
