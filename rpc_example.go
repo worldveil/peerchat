@@ -3,7 +3,6 @@ package main
 import "example"
 import "log"
 import "strconv"
-import "lang"
 import "fmt"
 import "bufio"
 import "os"
@@ -13,7 +12,6 @@ func main() {
 	
 	//sync()
 	//async()
-	//stack_ex()
 	//startChat()
 }
 
