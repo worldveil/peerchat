@@ -121,6 +121,18 @@ func find_n(a, b ID) uint{
 	return i
 }
 
+func isEqual(entry1 []RoutingEntryDist, entry2 []RoutingEntryDist) bool{
+	if len(entry1) != len(entry2){
+		return false
+	}
+	for i, v := range entry1{
+		if v != entry2[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // call() sends an RPC to the rpcname handler on server srv
 // with arguments args, waits for the reply, and leaves the
 // reply in reply. the reply argument should be a pointer

@@ -2,6 +2,7 @@ package dht
 
 //import "lang"
 import "log"
+import "math"
 import "github.com/pmylund/sortutil"
 
 type DhtNode struct {
@@ -17,10 +18,10 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 }
 
 //this gets called when another node is contacting this node through any API method!
-func (node *DhtNode) updateRoutingTable(NodeId ID, IpAddr string) {
+func (node *DhtNode) updateRoutingTable(nodeId ID, ipAddr string) {
 	// ordering of K bucket is from LRS to MRS
-	entry := RoutingEntry{NodeId: NodeId, IpAddr: IpAddr}
-	n := find_n(NodeId, node.NodeId) // n is the bucket index- index of first bit that doesn't match
+	entry := RoutingEntry{nodeId: nodeId, ipAddr: ipAddr}
+	n := find_n(nodeId, node.NodeId) // n is the bucket index- index of first bit that doesn't match
 	bucket := node.RoutingTable[n]
 	defer func(){node.RoutingTable[n] = bucket}()
 	//check if node is in routing table
@@ -34,7 +35,7 @@ func (node *DhtNode) updateRoutingTable(NodeId ID, IpAddr string) {
 		bucket = append(bucket, entry)
 	} else { // bucket is full
 		// ping the front of list (LRS)
-		if ! node.Ping(bucket[0].IpAddr){
+		if ! node.Ping(bucket[0].ipAddr){
 			bucket[0] = entry //if does not respond, replace
 		}
 		bucket = moveToEnd(bucket, 0)	// move to end
@@ -43,7 +44,7 @@ func (node *DhtNode) updateRoutingTable(NodeId ID, IpAddr string) {
 
 // get the alpha closest nodes to node ID in order to find user/node
 // returns a slice of RoutingEntriesDist sorted in increasing order of dist from 
-func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []RoutingEntry{
+func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []RoutingEntryDist{
 	res := make([]RoutingEntryDist, 0, target_result_len)
 	orig_bucket_idx := find_n(targetNodeId, node.NodeId)
 	bucket_idx := orig_bucket_idx
@@ -51,13 +52,13 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 	for len(res) < target_result_len{ //need to keep looping over buckets until res is filled
 		bucket := node.RoutingTable[bucket_idx]
 		for _, value := range(bucket){
-			xor := Xor(targetNodeId, value.NodeId)
+			xor := Xor(targetNodeId, value.nodeId)
 			if len(res) < target_result_len {
-				res = append(res, RoutingEntryDist{routingEntry: value, dist: xor})
-			}else{ //bucket is full	
-				res = sortutil.AscByField(res, "dist")
-				if xor < res[len(res) - 1].dist{
-					res[len(res) - 1] = RoutingEntryDist{routingEntry: value, dist: xor}
+				res = append(res, RoutingEntryDist{routingEntry: value, distance: xor})
+			} else { //bucket is full	
+				sortutil.AscByField(res, "distance")
+				if xor < res[len(res) - 1].distance{
+					res[len(res) - 1] = RoutingEntryDist{routingEntry: value, distance: xor}
 				}
 			}
 		}
@@ -72,7 +73,8 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 			bucket_idx--
 		}
 	}
-	return sortutil.AscByField(res, "dist")
+	sortutil.AscByField(res, "dist")
+	return res
 }
 
 // AnnouceUser RPC handlers
@@ -95,7 +97,7 @@ func (node *DhtNode) FindNodeHandler(args *FindNodeArgs, reply *FindNodeReply) e
 
 // helper function called by both FindUser and AnnounceUser
 // returns a k-length slice of RoutingEntriesDist sorted in increasing order of dist from 
-func (node *DhtNode) nodeLookup(nodeId ID) {
+func (node *DhtNode) nodeLookup(nodeId ID) []RoutingEntryDist{
 	// get the closest nodes to the desired node ID
 	// then add to a stack. we'll 
 	closestNodes := node.getClosest(Alpha, nodeId)
@@ -118,8 +120,8 @@ func (node *DhtNode) nodeLookup(nodeId ID) {
 		// process the reply, see if we are done
 		// if we need to break because of stop cond: send done channel
 		combined := append(closestNodes, reply.TryNodes...)
-		combined = sortutil.AscByField(combined, "dist")[:min(K, len(combined))]
-		if combined == closestNodes{ //closest Nodes have not changed
+		sortutil.AscByField(combined, "distance")[: int(math.Min(float64(K), float64(len(combined))))]
+		if isEqual(combined, closestNodes) { //closest Nodes have not changed
 			return closestNodes
 		}
 		closestNodes = combined
@@ -133,7 +135,7 @@ func (node *DhtNode) nodeLookup(nodeId ID) {
 				//find first value not in tried nodes
 				_, already_tried := triedNodes[entryDist.routingEntry.nodeId]
 				if ! already_tried{
-					go node.sendFindNodeQuery(entryDist.RoutingEntry, replyChannel)
+					go node.sendFindNodeQuery(entryDist.routingEntry, replyChannel)
 					sent++
 					break
 				}
@@ -148,11 +150,11 @@ func (node *DhtNode) sendFindNodeQuery(entry RoutingEntry, replyChannel chan *Fi
 		the reply is added to the done Channel, which is read by a separate thread. 
 	*/
 	ok := false
-	args := &FindNodeArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: "???", TargetNodeId: entry.NodeId}
+	args := &FindNodeArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: "???", TargetNodeId: entry.nodeId}
 	var reply FindNodeReply
 	
 	for !ok {
-		ok = call(entry.IpAddr, "DhtNode.FindNodeHandler", args, &reply)
+		ok = call(entry.ipAddr, "DhtNode.FindNodeHandler", args, &reply)
 		if !ok {
 			log.Printf("Failed! Will try again.")
 		}
