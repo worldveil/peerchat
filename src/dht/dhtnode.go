@@ -19,7 +19,7 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 
 //this gets called when another node is contacting this node through any API method!
 func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
-	Print("DHTHelper", "Node %v calling updateRoutingTable for ip: %s", node.port, entry.ipAddr)
+	Print("DHTHelper", "Node %v calling updateRoutingTable for ip: %s", Short(node.NodeId), entry.ipAddr)
 	// ordering of K bucket is from LRS to MRS
 	n := find_n(entry.nodeId, node.NodeId) // n is the bucket index- index of first bit that doesn't match
 	bucket := node.RoutingTable[n]
@@ -45,7 +45,7 @@ func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
 // get the alpha closest nodes to node ID in order to find user/node
 // returns a slice of RoutingEntriesDist sorted in increasing order of dist from 
 func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []RoutingEntryDist{
-	Print("DHTHelper", "Node %v calling getClosest to get %d closest", node.port, target_result_len, Short(targetNodeId))
+	Print("DHTHelper", "Node %v calling getClosest to get %d closest to %v", Short(node.NodeId), target_result_len, targetNodeId)
 	res := make([]RoutingEntryDist, 0, target_result_len)
 	orig_bucket_idx := find_n(targetNodeId, node.NodeId)
 	bucket_idx := orig_bucket_idx
@@ -82,7 +82,7 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 // StoreUser RPC handler
 //this just stores the user in your kv
 func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply) error {
-	Print("Handler", "%v StoreUserHandler called", node.port)
+	Print("Handler", "%v StoreUserHandler called. kv[%v]=%v", Short(node.NodeId), args.AnnouncedUsername, args.QueryingIpAddr)
 	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
 	node.kv[Sha1(args.AnnouncedUsername)] = args.QueryingIpAddr
 	return nil
@@ -91,7 +91,7 @@ func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply
 // called by User
 // tells the entire network: I'm a node and I'm online
 func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
-	Print("API", "Node %v calling AnnounceUser", node.port)
+    Print("API", "Node %v calling AnnounceUser, username: %v, ipAddr: %v", Short(node.NodeId), username, ipAddr)
 	// does idLookup(node.NodeId) in order to populate other node's routing table with my info
 	node.idLookup(node.NodeId, "Node")
 	// does idLookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node
@@ -107,7 +107,7 @@ func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 // all this does is call getClosest on K nodes
 // returns k sorted slice of RoutingEntryDist from my routing table
 func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error {
-	Print("Handler", "%v FindNodeHandler called", node.port)
+    Print("Handler", "Node %v FindNodeHandler called, TargetId: %v", Short(node.NodeId), args.TargetId)
 	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
 	reply.TryNodes = node.getClosest(K, args.TargetId)
 	return nil
@@ -116,12 +116,12 @@ func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error
 // helper function called by both FindUser and AnnounceUser
 // returns a k-length slice of RoutingEntriesDist sorted in increasing order of dist from 
 func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDist, string) {
-	Print("DHTHelper", "Node %v calling idLookup", node.port)
+    Print("DHTHelper", "Node %v calling idLookup, targetId: %v, targetType: %v", Short(node.NodeId), targetId, targetType)
 	// get the closest nodes to the desired node ID
 	// then add to a stack. we'll 
 	closestNodes := node.getClosest(Alpha, targetId)
 	if len(closestNodes) == 0 {
-		Print("Api", "Node %v found 0 closest nodes- empty routing table!", node.port)
+		Print("Api", "Node %v found 0 closest nodes- empty routing table!", Short(node.NodeId))
 		return []RoutingEntryDist{}, ""
 	}
 	triedNodes := make(map[ID]bool)
@@ -193,7 +193,7 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 // FindUser RPC handlers
 //checks if user is in, if not, return false
 func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error {
-	Print("Handler", "%v FindUserHandler called", node.port)
+        Print("Handler", "Node %v FindUserHandler called, TargetId: %v", Short(node.NodeId), args.TargetId)
 	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
 	ipAddr, exists := node.kv[args.TargetId]
 	if exists {
@@ -207,7 +207,7 @@ func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error
 // FindUser RPC API
 // returns IP of username or "" if can't find IP of username
 func (node *DhtNode) FindUser(username string) string {
-	Print("API", "Node %v calling FindUser", node.port)
+	Print("API", "Node %v calling FindUser", Short(node.NodeId))
 	targetId := Sha1(username)
 	//check if have locally
 	ipAddr, exists := node.kv[targetId]
@@ -221,7 +221,7 @@ func (node *DhtNode) FindUser(username string) string {
 
 // Ping RPC handlers
 func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
-	Print("Handler", "%v PingHandler called", node.port)
+	Print("Handler", "%v PingHandler called", Short(node.NodeId))
 	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
 	reply.QueriedNodeId = node.NodeId
 	return nil
@@ -230,7 +230,7 @@ func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
 // Ping RPC API
 //assume you already have them in routing table
 func (node *DhtNode) Ping(routingEntry RoutingEntry) bool{
-	Print("API", "Node %v calling Ping on ip: %s", node.port, routingEntry.ipAddr)
+	Print("API", "Node %v calling Ping on ip: %s", Short(node.NodeId), routingEntry.ipAddr)
 	args := &PingArgs{QueryingNodeId: node.NodeId}
 	var reply PingReply
 	ok := call(routingEntry.ipAddr, "DhtNode.PingHandler", args, &reply)
