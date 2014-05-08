@@ -9,6 +9,8 @@ type User struct {
 	node *DhtNode
 	name string
 	// messageHistory map[string]string
+	
+	pendingMessages map[string][]string // ipAddr => slice of messages to send
 }
 
 const PEERCHAT_USERDATA_DIR = "/tmp/"
@@ -42,13 +44,21 @@ func (u *User) Serialize() {
 	encodeFile.Close()
 }
 
-func Deserialize(username string) *User {
+func Deserialize(username string) (bool, *User) {
 	/*
 		Deserializes a DhtNode and loads
 		it into a new DhtNode, which is 
 		returned. 
 	*/
+	newUser := new(User)
+	
+	// check if this file exists
 	path := usernameToPath(username)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+	    // this file does not exist
+	    return false, newUser
+	}
+	
 	decodeFile, err := os.Open(path)
 	if err != nil {
 		panic(err)
@@ -57,57 +67,65 @@ func Deserialize(username string) *User {
 
 	// create decoder
 	decoder := gob.NewDecoder(decodeFile)
-	newUser := new(User)
 	decoder.Decode(&newUser)
-	return newUser
+	return true, newUser
 }
 
-func loadTable(username, myIpAddr string) *User {
+func loadUser(username, myIpAddr string) *User {
 	/*
 		This method loads the User struct for a given 
 		username from disk, checking if there needs to 
 		be a reconfiguration of the routing table or not
 		and acting appropriately. 
 	*/
-	// first deserialize the old User struct from disk
-	user := Deserialize(username)
 	
-	// check and see if ipaddr is the same as the old one
-	// if so, we don't need to change anything
-	if user.node.IpAddr != myIpAddr {
-		
-		// otherwise, create a new nodeId
-		user.node.NodeId = Sha1(myIpAddr)
-		
-		// and rearrange the table based on new nodeId
-		// first, get a list of all (nodeId, ipAddr) pairs
-		routingEntries := make([]RoutingEntry, 0)
-		
-		// for each k-buckets row
-		for _, row := range user.node.RoutingTable {
-		
-			// for each RoutingEntry in row
-			for _, entry := range row {
-				routingEntries = append(routingEntries, entry)
+	// first deserialize the old User struct from disk
+	success, user := Deserialize(username)
+	
+	// there was a userfile to load
+	if success {
+	
+		// check and see if ipaddr is the same as the old one
+		// if so, we don't need to change anything
+		if user.node.IpAddr != myIpAddr {
+			
+			// otherwise, create a new nodeId
+			user.node.NodeId = Sha1(myIpAddr)
+			
+			// and rearrange the table based on new nodeId
+			// first, get a list of all (nodeId, ipAddr) pairs
+			routingEntries := make([]RoutingEntry, 0)
+			
+			// for each k-buckets row
+			for _, row := range user.node.RoutingTable {
+			
+				// for each RoutingEntry in row
+				for _, entry := range row {
+					routingEntries = append(routingEntries, entry)
+				}
+			}
+			
+			// now delete old routing table and replace 
+			// with a new (empty) one
+			user.node.RoutingTable = MakeEmptyRoutingTable()
+			
+			// then, for each pair, call:
+			// updateRoutingTable(nodeId ID, IpAddr string)
+			for _, entry := range routingEntries {
+				if user.node.Ping(entry){
+					user.node.updateRoutingTable(entry)
+				}			
 			}
 		}
+
+	// there was not, create a new User	
+	} else {
+		emptyPendingMessages := make(map[string][]string)
+		table := MakeEmptyRoutingTable()
+		node := MakeNode(username, myIpAddr, table)
+		user := User{node: node, name: username, pendingMessages: emptyPendingMessages}
 		
-		// now delete old routing table and replace 
-		// with a new (empty) one
-		var routingTable [IDLen][]RoutingEntry
-		for i, _ := range routingTable {
-			routingTable[i] = make([]RoutingEntry, 0)
-		}
-		user.node.RoutingTable = routingTable
-		
-		// then, for each pair, call:
-		// updateRoutingTable(nodeId ID, IpAddr string)
-		for _, entry := range routingEntries {
-			if user.node.Ping(entry){
-				user.node.updateRoutingTable(entry)
-			}			
-		}
-	}
+	}	
 	
 	return user
 }
@@ -121,7 +139,7 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 //SendMessage API
 func (user *User) SendMessage(username string, content string){
 	ipAddr := user.node.GetUser(username)
-	switch user.CheckStatus(ipAddr){
+	switch user.CheckStatus(ipAddr) {
 		case Online:
 			args := &SendMessageArgs{Content: content, ToUsername: username, FromUsername: user.name, Timestamp: time.Now()}
 			var reply SendMessageReply
@@ -136,7 +154,7 @@ func (user *User) CheckStatus(ipAddr string) Status {
 }
 
 func Login(username string, userIpAddr string) *User {
-	user := loadTable(username, userIpAddr)
+	user := loadUser(username, userIpAddr)
 	return user
 }
 

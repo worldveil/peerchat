@@ -207,6 +207,14 @@ func (node *DhtNode) Ping(routingEntry RoutingEntry) bool{
 	return ok && (reply.QueriedNodeId == routingEntry.nodeId)
 }
 
+func MakeEmptyRoutingTable() [IDLen][]RoutingEntry {
+	var routingTable [IDLen][]RoutingEntry
+	for i, _ := range routingTable {
+		routingTable[i] = make([]RoutingEntry, 0)
+	}
+	return routingTable
+}
+
 //called when want to make a node from user.go
 func MakeNode(username string, myIpAddr string, RoutingTable [IDLen][]RoutingEntry) *DhtNode {
 	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr), RoutingTable: RoutingTable}

@@ -27,7 +27,6 @@ func table() {
 		t[i] = make([]Entry, 0)
 		t[i] = append(t[i], Entry{Thing:strconv.Itoa(i)})
 	}
-	
 	log.Printf("%+v", t)
 }
 
