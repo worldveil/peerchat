@@ -81,23 +81,28 @@ func loadTable(username, myIpAddr string) *User {
 		
 		// and rearrange the table based on new nodeId
 		// first, get a list of all (nodeId, ipAddr) pairs
-		routingEntries := make([IDLen][]RoutingEntry)
+		routingEntries := make([]RoutingEntry, 0)
 		
 		// for each k-buckets row
-		for row := range user.node.RoutingTable {
+		for _, row := range user.node.RoutingTable {
 		
 			// for each RoutingEntry in row
-			for entry := range row {
+			for _, entry := range row {
 				routingEntries = append(routingEntries, entry)
 			}
 		}
 		
-		// now delete old routing table and replace with a new one
-		user.node.RoutingTable = make([IDLen][]RoutingEntry)
+		// now delete old routing table and replace 
+		// with a new (empty) one
+		var routingTable [IDLen][]RoutingEntry
+		for i, _ := range routingTable {
+			routingTable[i] = make([]RoutingEntry, 0)
+		}
+		user.node.RoutingTable = routingTable
 		
 		// then, for each pair, call:
 		// updateRoutingTable(nodeId ID, IpAddr string)
-		for entry := range routingEntries {
+		for _, entry := range routingEntries {
 			if user.node.Ping(entry){
 				user.node.updateRoutingTable(entry)
 			}			
@@ -131,9 +136,7 @@ func (user *User) CheckStatus(ipAddr string) Status {
 }
 
 func Login(username string, userIpAddr string) *User {
-	routingTable := loadTable(username, userIpAddr)
-	node := MakeNode(username, userIpAddr, routingTable)
-	user := &User{node: node, name: username}
+	user := loadTable(username, userIpAddr)
 	return user
 }
 

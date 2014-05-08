@@ -208,7 +208,7 @@ func (node *DhtNode) Ping(routingEntry RoutingEntry) bool{
 }
 
 //called when want to make a node from user.go
-func MakeNode(username string, myIpAddr string, RoutingTable [IDLen][]RoutingEntry) *DhtNode{
+func MakeNode(username string, myIpAddr string, RoutingTable [IDLen][]RoutingEntry) *DhtNode {
 	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr), RoutingTable: RoutingTable}
 	node.kv = make(map[ID]string)
 	node.announceUser(username, myIpAddr)
