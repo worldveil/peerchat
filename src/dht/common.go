@@ -5,17 +5,24 @@ import "crypto/sha1"
 import "net/rpc"
 import "fmt"
 
+// Configurable constants
+const (
+	IDLen = 64
+	K = 8
+	Alpha = 3
+)
+
 const (
 	Online = "Online"
 	Offline = "Offline"
 )
 type Status string
 
-const (
-	IDLen = 64
-	K = 8
-	Alpha = 3
-)
+// const (
+// 	OK = "OK"
+// 	WrongNodeID = "WrongNodeID"
+// )
+// type Err string
 
 type RoutingEntry struct {
 	ipAddr string
@@ -79,7 +86,7 @@ type PingArgs struct {
 }
 
 type PingReply struct {
-	QueriedNodeId ID
+	QueriedNodeId ID //remove1
 }
 
 func Sha1(s string) ID {

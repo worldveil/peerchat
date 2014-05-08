@@ -17,9 +17,8 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 }
 
 //this gets called when another node is contacting this node through any API method!
-func (node *DhtNode) updateRoutingTable(nodeId ID, ipAddr string) {
+func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
 	// ordering of K bucket is from LRS to MRS
-	entry := RoutingEntry{nodeId: nodeId, ipAddr: ipAddr}
 	n := find_n(nodeId, node.NodeId) // n is the bucket index- index of first bit that doesn't match
 	bucket := node.RoutingTable[n]
 	defer func(){node.RoutingTable[n] = bucket}()
@@ -34,7 +33,7 @@ func (node *DhtNode) updateRoutingTable(nodeId ID, ipAddr string) {
 		bucket = append(bucket, entry)
 	} else { // bucket is full
 		// ping the front of list (LRS)
-		if ! node.Ping(bucket[0].ipAddr){
+		if ! node.Ping(bucket[0]){
 			bucket[0] = entry //if does not respond, replace
 		}
 		bucket = moveToEnd(bucket, 0)	// move to end
@@ -85,11 +84,18 @@ func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply
 }
 
 // called by makeNode
+// tells the entire network: I'm a node and I'm online
+// does nodeLookup(node.NodeId) in order to populate other node's routing table with my info
+// does nodeLookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node
 func (node *DhtNode) announceUser(username string, ipAddr string) {
-	// tells the entire network: I'm a node and I'm online
-	// loop through routing table, ping each one until one responds
-	// does nodeLookup(node.NodeId) in order to populate other node's routing table with my info
-	// does nodeLookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node
+	// loop through routing table, ping each one until one responds (responding node is bootstrap node)
+	for _, bucket := range node.RoutingTable{
+		for _, entry := range bucket{
+			if node.Ping(entry) {
+				//entry is bootstrap node
+			}
+		}
+	}
 
 }
 
@@ -193,11 +199,11 @@ func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
 
 // Ping RPC API
 //assume you already have them in routing table
-func (node *DhtNode) Ping(ipAddr string) bool{
+func (node *DhtNode) Ping(routingEntry RoutingEntry) bool{
 	args := &PingArgs{QueryingNodeId: node.NodeId}
 	var reply PingReply
-	ok := call(ipAddr, "DhtNode.PingHandler", args, &reply)
-	return ok
+	ok := call(routingEntry.ipAddr, "DhtNode.PingHandler", args, &reply)
+	return ok & (reply.QueriedNodeId == routingEntry.QueriedNodeId)
 }
 
 //called when want to make a node from user.go

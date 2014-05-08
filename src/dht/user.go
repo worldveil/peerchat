@@ -98,7 +98,9 @@ func loadTable(username, myIpAddr string) *User {
 		// then, for each pair, call:
 		// updateRoutingTable(nodeId ID, IpAddr string)
 		for entry := range routingEntries {
-			user.node.updateRoutingTable(entry.NodeId, entry.IpAddr)
+			if user.node.Ping(entry){
+				user.node.updateRoutingTable(entry)
+			}			
 		}
 	}
 	
