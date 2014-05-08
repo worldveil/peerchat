@@ -123,7 +123,7 @@ func loadUser(username, myIpAddr string) *User {
 		emptyPendingMessages := make(map[string][]string)
 		table := MakeEmptyRoutingTable()
 		node := MakeNode(username, myIpAddr, table)
-		user := User{node: node, name: username, pendingMessages: emptyPendingMessages}
+		user = &User{node: node, name: username, pendingMessages: emptyPendingMessages}
 		
 	}	
 	

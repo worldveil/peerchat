@@ -134,7 +134,8 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 		// process the reply, see if we are done
 		// if we need to break because of stop cond: send done channel
 		combined := append(closestNodes, reply.TryNodes...)
-		sortutil.AscByField(combined, "distance")[: int(math.Min(float64(K), float64(len(combined))))]
+		sortutil.AscByField(combined, "distance")
+		combined = combined[: int(math.Min(float64(K), float64(len(combined))))]
 		if isEqual(combined, closestNodes) { //closest Nodes have not changed
 			return closestNodes, ""
 		}
@@ -145,7 +146,7 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 		// the total of alpha messages still in flight
 		// and if so, send more
 		for i := sent; i < Alpha; i++ {
-			for idx, entryDist := range closestNodes{
+			for _, entryDist := range closestNodes{
 				//find first value not in tried nodes
 				_, already_tried := triedNodes[entryDist.routingEntry.nodeId]
 				if ! already_tried{
