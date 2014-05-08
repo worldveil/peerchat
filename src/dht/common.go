@@ -69,7 +69,7 @@ type GetUserArgs struct {
 
 type GetUserReply struct {
 	QueriedNodeId ID
-	TryNodes []RoutingEntry // if list is of length 1, then we found it
+	TryNodes []RoutingEntryDist // if list is of length 1, then we found it
 }
 
 type PingArgs struct {

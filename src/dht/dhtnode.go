@@ -94,46 +94,52 @@ func (node *DhtNode) FindNodeHandler(args *FindNodeArgs, reply *FindNodeReply) e
 }
 
 // helper function called by both FindUser and AnnounceUser
-// returns the sorted slice of RoutingEntry
+// returns a k-length slice of RoutingEntriesDist sorted in increasing order of dist from 
 func (node *DhtNode) nodeLookup(nodeId ID) {
 	// get the closest nodes to the desired node ID
 	// then add to a stack. we'll 
 	closestNodes := node.getClosest(Alpha, nodeId)
+	triedNodes := make(map[ID]bool)
 
 	// send the initial min(Alpha, # of closest Node)
 	// messages in flight to start the process
 	replyChannel := make(chan *FindNodeReply, Alpha)
-	doneChannel := make(chan bool)
 	sent := 0
 	for _, entryDist := range closestNodes{
 		go node.sendFindNodeQuery(entryDist.routingEntry, replyChannel)
+		triedNodes[entryDist.routingEntry.nodeId] = true
 		sent++
 	}
 
 	// now process replies as they arrive, spinning off new
 	// requests up to alpha requests
 	for {
-		select {
-		case <-doneChannel:
-			break
-		case reply := <-replyChannel:
-			// process the reply, see if we are done
-			// if we need to break because of stop cond: send done channel
-			reply.TryNodes
-			sent--
-
-			// then check to see if we are still under
-			// the total of alpha messages still in flight
-			// and if so, send more
-			for i := sent; i < Alpha; i++ {
-				go node.sendFindNodeQuery(closestStack.Pop().(RoutingEntry), replyChannel)
-				sent++
-			}
+		reply := <-replyChannel
+		// process the reply, see if we are done
+		// if we need to break because of stop cond: send done channel
+		combined := append(closestNodes, reply.TryNodes...)
+		combined = sortutil.AscByField(combined, "dist")[:min(K, len(combined))]
+		if combined == closestNodes{ //closest Nodes have not changed
+			return closestNodes
 		}
-		
-	}
+		closestNodes = combined
+		sent--
 
-	//return reply.???
+		// then check to see if we are still under
+		// the total of alpha messages still in flight
+		// and if so, send more
+		for i := sent; i < Alpha; i++ {
+			for idx, entryDist := range closestNodes{
+				//find first value not in tried nodes
+				_, already_tried := triedNodes[entryDist.routingEntry.nodeId]
+				if ! already_tried{
+					go node.sendFindNodeQuery(entryDist.RoutingEntry, replyChannel)
+					sent++
+					break
+				}
+			}			
+		}		
+	}	
 }
 
 func (node *DhtNode) sendFindNodeQuery(entry RoutingEntry, replyChannel chan *FindNodeReply) {
