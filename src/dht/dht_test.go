@@ -2,6 +2,7 @@ package dht
 
 import "testing"
 import "runtime"
+import "fmt"
 
 // Signal failures with the following:
 // t.Fatalf("error message here")
@@ -17,5 +18,17 @@ func TestBasic(t *testing.T) {
 		and arrive unaltered. 
 	*/
 	runtime.GOMAXPROCS(4)
+
+	localIp := "127.0.0.1"
+	port1 := ":4444"
+	port2 := ":5555"
+	username1 := "Alice"
+	username2 := "Frans"
+
+
+	user1 := Register(username1, localIp + port1, "")
+	user2 := Register(username2, localIp + port2, localIp + port1)
+
+	fmt.Println(user1, user2)
 }
 

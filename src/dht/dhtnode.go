@@ -83,9 +83,9 @@ func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply
 	return nil
 }
 
-// called by makeNode
+// called by User
 // tells the entire network: I'm a node and I'm online
-func (node *DhtNode) announceUser(username string, ipAddr string) {
+func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 	// does idLookup(node.NodeId) in order to populate other node's routing table with my info
 	node.idLookup(node.NodeId, "Node")
 	// does idLookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node
@@ -240,6 +240,5 @@ func MakeNode(username string, myIpAddr string) *DhtNode {
 	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr)}
 	node.kv = make(map[ID]string)
 	node.MakeEmptyRoutingTable()
-	node.announceUser(username, myIpAddr)
 	return node
 }

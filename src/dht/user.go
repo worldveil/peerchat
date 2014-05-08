@@ -122,9 +122,9 @@ func loadUser(username, myIpAddr string) *User {
 	} else {
 		emptyPendingMessages := make(map[string][]string)
 		node := MakeNode(username, myIpAddr)
-		user = &User{node: node, name: username, pendingMessages: emptyPendingMessages}
-		
-	}	
+		user = &User{node: node, name: username, pendingMessages: emptyPendingMessages}		
+	}
+	user.node.AnnounceUser(username, myIpAddr)
 	
 	return user
 }
@@ -154,6 +154,17 @@ func (user *User) CheckStatus(ipAddr string) Status {
 
 func Login(username string, userIpAddr string) *User {
 	user := loadUser(username, userIpAddr)
+	return user
+}
+
+func Register(username string, userIpAddr string, bootstrapIpAddr string) *User{
+	user := Login(username, userIpAddr)
+	routingEntry := RoutingEntry{ipAddr: bootstrapIpAddr, nodeId: Sha1(bootstrapIpAddr)}
+	ok := user.node.Ping(routingEntry)
+	if ! ok {
+		//return some error
+	}
+	user.node.AnnounceUser(username, userIpAddr)
 	return user
 }
 
