@@ -107,7 +107,7 @@ func loadUser(username, myIpAddr string) *User {
 			
 			// now delete old routing table and replace 
 			// with a new (empty) one
-			user.node.RoutingTable = MakeEmptyRoutingTable()
+			user.node.MakeEmptyRoutingTable()
 			
 			// then, for each pair, call:
 			// updateRoutingTable(nodeId ID, IpAddr string)
@@ -121,8 +121,7 @@ func loadUser(username, myIpAddr string) *User {
 	// there was not, create a new User	
 	} else {
 		emptyPendingMessages := make(map[string][]string)
-		table := MakeEmptyRoutingTable()
-		node := MakeNode(username, myIpAddr, table)
+		node := MakeNode(username, myIpAddr)
 		user = &User{node: node, name: username, pendingMessages: emptyPendingMessages}
 		
 	}	
