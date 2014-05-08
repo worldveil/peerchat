@@ -3,6 +3,7 @@ package dht
 import "testing"
 import "runtime"
 import "fmt"
+import "time"
 
 // Signal failures with the following:
 // t.Fatalf("error message here")
@@ -27,6 +28,9 @@ func TestBasic(t *testing.T) {
 
 
 	user1 := Register(username1, localIp + port1, "")
+	
+	time.Sleep(time.Second * 1)
+	
 	user2 := Register(username2, localIp + port2, localIp + port1)
 
 	fmt.Println(user1, user2)
