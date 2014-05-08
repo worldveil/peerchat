@@ -28,6 +28,10 @@ func Print(tag string, format string, a ...interface{}) (n int, err error) {
 	return
 }
 
+func Short(id ID) string{
+	return str(id <<5)
+}
+
 // const (
 // 	OK = "OK"
 // 	WrongNodeID = "WrongNodeID"
