@@ -4,3 +4,4 @@ play.go
 *.aux
 *.log
 *.gz
+pkg/*
