@@ -19,7 +19,7 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 //this gets called when another node is contacting this node through any API method!
 func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
 	// ordering of K bucket is from LRS to MRS
-	n := find_n(nodeId, node.NodeId) // n is the bucket index- index of first bit that doesn't match
+	n := find_n(entry.nodeId, node.NodeId) // n is the bucket index- index of first bit that doesn't match
 	bucket := node.RoutingTable[n]
 	defer func(){node.RoutingTable[n] = bucket}()
 	//check if node is in routing table
@@ -78,7 +78,7 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 // StoreUser RPC handler
 //this just stores the user in your kv
 func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply) error {	
-	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
+	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
 	node.kv[Sha1(args.AnnouncedUsername)] = args.AnnouncedIpAddr
 	return nil
 }
@@ -103,7 +103,7 @@ func (node *DhtNode) announceUser(username string, ipAddr string) {
 // all this does is call getClosest on K nodes
 // returns k sorted slice of RoutingEntryDist from my routing table
 func (node *DhtNode) FindNodeHandler(args *FindNodeArgs, reply *FindNodeReply) error {
-	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
+	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
 	reply.TryNodes = node.getClosest(K, args.TargetNodeId)
 	// reply.QueriedNodeId = node.nodeId //remove1
 	return nil
@@ -179,7 +179,7 @@ func (node *DhtNode) sendFindNodeQuery(entry RoutingEntry, replyChannel chan *Fi
 
 // GetUser RPC handlers
 func (node *DhtNode) GetUserHandler(args *GetUserArgs, reply *GetUserReply) error {
-	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
+	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
 	return nil
 }
 
@@ -192,7 +192,7 @@ func (node *DhtNode) GetUser(username string) string {
 
 // Ping RPC handlers
 func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
-	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
+	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
 	reply.QueriedNodeId = node.NodeId
 	return nil
 }
@@ -203,7 +203,7 @@ func (node *DhtNode) Ping(routingEntry RoutingEntry) bool{
 	args := &PingArgs{QueryingNodeId: node.NodeId}
 	var reply PingReply
 	ok := call(routingEntry.ipAddr, "DhtNode.PingHandler", args, &reply)
-	return ok & (reply.QueriedNodeId == routingEntry.QueriedNodeId)
+	return ok && (reply.QueriedNodeId == routingEntry.nodeId)
 }
 
 //called when want to make a node from user.go
