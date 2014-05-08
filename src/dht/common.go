@@ -43,7 +43,7 @@ type SendMessageReply struct {
 type StoreUserArgs struct {
 	QueryingNodeId ID
 	QueryingIpAddr string
-	AnnoucedUsername string
+	AnnouncedUsername string
 	AnnouncedIpAddr string
 }
 

@@ -9,7 +9,7 @@ type DhtNode struct {
 	NodeId ID // sha1(ip)
 	RoutingTable [IDLen][]RoutingEntry // map from NodeId to IP- a IDLen X K matrix
 	// set routing table cap to bucket := make([]RoutingEntry, 0,K)
-	kv map[string]string // map from username to IP
+	kv map[ID]string // map from username to IP
 }
 
 func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
@@ -80,7 +80,7 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 //this just stores the user in your kv
 func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply) error {	
 	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
-	node.kv[Sha1(args.AnnouncedUsername)] = args.IpAddr
+	node.kv[Sha1(args.AnnouncedUsername)] = args.AnnouncedIpAddr
 	return nil
 }
 
@@ -203,7 +203,7 @@ func (node *DhtNode) Ping(ipAddr string) bool{
 //called when want to make a node from user.go
 func MakeNode(username string, myIpAddr string, RoutingTable [IDLen][]RoutingEntry) *DhtNode{
 	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr), RoutingTable: RoutingTable}
-	node.kv = make(map[string]string)
+	node.kv = make(map[ID]string)
 	node.announceUser(username, myIpAddr)
 	return node
 }
