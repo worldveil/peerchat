@@ -40,13 +40,14 @@ type SendMessageReply struct {
 	
 }
 
-type AnnouceUserArgs struct {
+type StoreUserArgs struct {
 	QueryingNodeId ID
 	QueryingIpAddr string
 	AnnoucedUsername string
+	AnnouncedIpAddr string
 }
 
-type AnnouceUserReply struct {
+type StoreUserReply struct {
 	QueriedNodeId ID
 }
 
@@ -57,7 +58,7 @@ type FindNodeArgs struct {
 }
 
 type FindNodeReply struct {
-	QueriedNodeId ID
+	// QueriedNodeId ID //remove1
 	TryNodes []RoutingEntryDist // if list is of length 1, then we found it
 }
 

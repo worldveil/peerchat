@@ -76,21 +76,30 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 	return res
 }
 
-// AnnouceUser RPC handlers
-func (node *DhtNode) AnnouceUserHandler(args *AnnouceUserArgs, reply *AnnouceUserReply) error {
+// StoreUser RPC handler
+//this just stores the user in your kv
+func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply) error {	
 	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
+	node.kv[Sha1(args.AnnouncedUsername)] = args.IpAddr
 	return nil
 }
 
-// AnnouceUser API
-func (node *DhtNode) AnnounceUser(username string, IpAddr string) {
+// called by makeNode
+func (node *DhtNode) announceUser(username string, ipAddr string) {
+	// tells the entire network: I'm a node and I'm online
+	// loop through routing table, ping each one until one responds
+	// does nodeLookup(node.NodeId) in order to populate other node's routing table with my info
+	// does nodeLookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node
+
 }
 
-// FindNode RPC handlers
+// FindNode RPC handler
 // all this does is call getClosest on K nodes
 // returns k sorted slice of RoutingEntryDist from my routing table
 func (node *DhtNode) FindNodeHandler(args *FindNodeArgs, reply *FindNodeReply) error {
 	node.updateRoutingTable(args.QueryingNodeId, args.QueryingIpAddr)
+	reply.TryNodes = node.getClosest(K, args.TargetNodeId)
+	// reply.QueriedNodeId = node.nodeId //remove1
 	return nil
 }
 
@@ -158,8 +167,7 @@ func (node *DhtNode) sendFindNodeQuery(entry RoutingEntry, replyChannel chan *Fi
 			log.Printf("Failed! Will try again.")
 		}
 	}
-
-	// add refernce to reply onto the channel
+	// add reference to reply onto the channel
 	replyChannel <- &reply
 }
 
@@ -185,16 +193,17 @@ func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
 
 // Ping RPC API
 //assume you already have them in routing table
-func (node *DhtNode) Ping(IpAddr string) bool{
+func (node *DhtNode) Ping(ipAddr string) bool{
 	args := &PingArgs{QueryingNodeId: node.NodeId}
 	var reply PingReply
-	ok := call(IpAddr, "DhtNode.PingHandler", args, &reply)
+	ok := call(ipAddr, "DhtNode.PingHandler", args, &reply)
 	return ok
 }
 
-
-func MakeNode(myIpAddr string, RoutingTable [IDLen][]RoutingEntry) *DhtNode{
+//called when want to make a node from user.go
+func MakeNode(username string, myIpAddr string, RoutingTable [IDLen][]RoutingEntry) *DhtNode{
 	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr), RoutingTable: RoutingTable}
 	node.kv = make(map[string]string)
+	node.announceUser(username, myIpAddr)
 	return node
 }

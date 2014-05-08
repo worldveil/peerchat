@@ -13,7 +13,7 @@ type User struct {
 
 const PEERCHAT_USERDATA_DIR = "/tmp/"
 
-func UsernameToPath(username string) {
+func usernameToPath(username string) {
 	/*
 		Given a username, returns the filepath
 		where the backup will be located.
@@ -27,7 +27,7 @@ func (u *User) Serialize() {
 	/*
 		Serializes this User struct.
 	*/
-	path = UsernameToPath(u.name)
+	path = usernameToPath(u.name)
 	encodeFile, err := os.Create(path)
 	if err != nil {
 		panic(err)
@@ -47,7 +47,7 @@ func Deserialize(username string) *User {
 		it into a new DhtNode, which is 
 		returned. 
 	*/
-	path = UsernameToPath(username)
+	path = usernameToPath(username)
 	decodeFile, err := os.Open(path)
 	if err != nil {
 		panic(err)
@@ -61,7 +61,7 @@ func Deserialize(username string) *User {
 	return newNode
 }
 
-func LoadTable(username, myIpAddr string) *User {
+func loadTable(username, myIpAddr string) *User {
 	/*
 		This method loads the User struct for a given 
 		username from disk, checking if there needs to 
@@ -129,11 +129,9 @@ func (user *User) CheckStatus(ipAddr string) Status {
 
 func Login(username string, userIpAddr string) *User{
 	routingTable := loadTable(username)
-	node := MakeNode(userIpAddr, routingTable)
+	node := MakeNode(username, userIpAddr, routingTable)
 	user := &User{node: node, name: username}
-
-	node.AnnounceUser(username, userIpAddr) //bootstrap to store in hash table
-
+	
 	return user
 }
 
