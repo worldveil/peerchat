@@ -67,7 +67,7 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 			bucket_idx = orig_bucket_idx - 1
 		} else if bucket_idx == 0 && ! increasing_bucket{
 			break
-		}else {
+		} else {
 			bucket_idx--
 		}
 	}
@@ -78,7 +78,8 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 // StoreUser RPC handler
 //this just stores the user in your kv
 func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply) error {	
-	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
+	entry := RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr}
+	node.updateRoutingTable(entry)
 	node.kv[Sha1(args.AnnouncedUsername)] = args.AnnouncedIpAddr
 	return nil
 }
