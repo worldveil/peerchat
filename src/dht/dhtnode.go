@@ -12,6 +12,7 @@ const ApiTag = "API"
 const DHTHelperTag = "HELPER"
 const HandlerTag = "HANDLER"
 const StartTag = "START"
+const Temp = "Temp"
 
 type DhtNode struct {
 	IpAddr string
@@ -77,6 +78,9 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 			bucket_idx++
 		} else if bucket_idx == IDLen - 1 && increasing_bucket{ // stops increasing
 			increasing_bucket = false
+			if orig_bucket_idx == 0 {
+				break
+			}
 			bucket_idx = orig_bucket_idx - 1
 		} else if bucket_idx == 0 && ! increasing_bucket{
 			break
