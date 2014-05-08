@@ -49,22 +49,6 @@ func async() {
 	} 
 }
 
-func stack_ex() {
-	
-	// create a stack
-	stack := lang.NewStack()
-	
-	// add elements
-	stack.Push("the first")
-	stack.Push("the second")
-	stack.Push("and the last")
-	
-	// pop them off
-	log.Printf(stack.Pop().(string))
-	log.Printf(stack.Pop().(string))
-	log.Printf(stack.Pop().(string))
-}
-
 func startChat() {
 	fmt.Printf("********************")
 	fmt.Printf(" WELCOME TO PEERCHAT! ")
