@@ -18,11 +18,11 @@ const (
 )
 type Status string
 
-const Debug=-1
+const Debug=1
 
 func Print(tag string, format string, a ...interface{}) (n int, err error) {
 	tag = "["+tag+"] "
-	if Debug > 1 {
+	if Debug > 0 {
 		n, err = fmt.Printf(tag + format + "\n", a...)
 	}
 	return
@@ -121,10 +121,10 @@ func find_n(a, b ID) uint{
 	for i = 0; i < IDLen; i++{
 		d = 1<<(IDLen - 1 - i)
 		if d & diff != 0 { // if true, return i
-			break
+			return i
 		}
 	}
-	return i
+	return IDLen - 1
 }
 
 func isEqual(entry1 []RoutingEntryDist, entry2 []RoutingEntryDist) bool{
