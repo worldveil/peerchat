@@ -14,7 +14,7 @@ type User struct {
 	pendingMessages map[string][]string // ipAddr => slice of messages to send
 }
 
-const PEERCHAT_USERDATA_DIR = "/tmp/"
+const PEERCHAT_USERDATA_DIR = "/tmp"
 
 func usernameToPath(username string) string {
 	/*
