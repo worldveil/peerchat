@@ -11,7 +11,7 @@ type User struct {
 	// messageHistory map[string]string
 }
 
-const PEERCHAT_USERDATA_DIR = "/var/temp/"
+const PEERCHAT_USERDATA_DIR = "/tmp/"
 
 func UsernameToPath(username string) {
 	/*
@@ -41,7 +41,7 @@ func (u *User) Serialize() {
 	encodeFile.Close()
 }
 
-func Deserialize(username string) *DhtNode {
+func Deserialize(username string) *User {
 	/*
 		Deserializes a DhtNode and loads
 		it into a new DhtNode, which is 
@@ -56,7 +56,7 @@ func Deserialize(username string) *DhtNode {
 
 	// create decoder
 	decoder := gob.NewDecoder(decodeFile)
-	newNode := new(DhtNode)
+	newNode := new(User)
 	decoder.Decode(&newNode)
 	return newNode
 }
@@ -73,17 +73,35 @@ func LoadTable(username, myIpAddr string) *User {
 	
 	// check and see if ipaddr is the same as the old one
 	// if so, we don't need to change anything
-	if user.node.IpAddr == myIpAddr {
-		return user
-	
-	// we need to change nodeId and update routing table
-	} else {
+	if user.node.IpAddr != myIpAddr {
+		
 		// otherwise, create a new nodeId
 		user.node.nodeId = Sha1(myIpAddr)
 		
 		// and rearrange the table based on new nodeId
-		// ... 
+		// first, get a list of all (nodeId, ipAddr) pairs
+		routingEntries := make([]RoutingEntry)
+		
+		// for each k-buckets row
+		for row := range user.node.routingTable {
+		
+			// for each RoutingEntry in row
+			for entry := range row {
+				routingEntries = append(routingEntries, entry)
+			}
+		}
+		
+		// now delete old routing table and replace with a new one
+		user.node.routingTable = make([IDLen][]RoutingEntry)
+		
+		// then, for each pair, call:
+		// updateRoutingTable(nodeId ID, IpAddr string)
+		for entry := range routingEntries {
+			user.node.updateRoutingTable(entry.NodeId, entry.IpAddr)
+		}
 	}
+	
+	return user
 }
 
 //SendMessage RPC Handler
