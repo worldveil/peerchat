@@ -1,6 +1,5 @@
 package dht
 
-//import "lang"
 import "log"
 import "github.com/pmylund/sortutil"
 
