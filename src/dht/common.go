@@ -29,7 +29,7 @@ func Print(tag string, format string, a ...interface{}) (n int, err error) {
 	return
 }
 
-func Short(id ID) string{
+func Short(id ID) string {
 	my_int := int(id)
 	if my_int < 0 {
 		my_int = my_int * -1
