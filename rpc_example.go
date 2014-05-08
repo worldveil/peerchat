@@ -13,6 +13,22 @@ func main() {
 	//sync()
 	//async()
 	//startChat()
+	
+	table()
+}
+
+type Entry struct {
+	Thing string
+}
+
+func table() {
+	var t [10][]Entry
+	for i, _ := range t {
+		t[i] = make([]Entry, 0)
+		t[i] = append(t[i], Entry{Thing:strconv.Itoa(i)})
+	}
+	
+	log.Printf("%+v", t)
 }
 
 func sync() {

@@ -67,7 +67,7 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 			bucket_idx = orig_bucket_idx - 1
 		} else if bucket_idx == 0 && ! increasing_bucket{
 			break
-		}else {
+		} else {
 			bucket_idx--
 		}
 	}
@@ -221,7 +221,7 @@ func (node *DhtNode) Ping(routingEntry RoutingEntry) bool{
 }
 
 //called when want to make a node from user.go
-func MakeNode(username string, myIpAddr string, RoutingTable [IDLen][]RoutingEntry) *DhtNode{
+func MakeNode(username string, myIpAddr string, RoutingTable [IDLen][]RoutingEntry) *DhtNode {
 	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr), RoutingTable: RoutingTable}
 	node.kv = make(map[ID]string)
 	node.announceUser(username, myIpAddr)
