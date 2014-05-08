@@ -51,33 +51,21 @@ type StoreUserArgs struct {
 	QueryingNodeId ID
 	QueryingIpAddr string
 	AnnouncedUsername string
-	AnnouncedIpAddr string
 }
 
 type StoreUserReply struct {
 	QueriedNodeId ID
 }
 
-type FindNodeArgs struct {
+type FindIdArgs struct {
 	QueryingNodeId ID
 	QueryingIpAddr string
-	TargetNodeId ID
+	TargetId ID
 }
 
-type FindNodeReply struct {
-	// QueriedNodeId ID //remove1
+type FindIdReply struct {
 	TryNodes []RoutingEntryDist // if list is of length 1, then we found it
-}
-
-type GetUserArgs struct {
-	QueryingNodeId ID
-	QueryingIpAddr string
-	TargetUsername ID
-}
-
-type GetUserReply struct {
-	QueriedNodeId ID
-	TryNodes []RoutingEntryDist // if list is of length 1, then we found it
+	TargetIpAddr string
 }
 
 type PingArgs struct {
@@ -86,7 +74,7 @@ type PingArgs struct {
 }
 
 type PingReply struct {
-	QueriedNodeId ID //remove1
+	QueriedNodeId ID
 }
 
 func Sha1(s string) ID {
