@@ -13,21 +13,22 @@ type User struct {
 
 const PEERCHAT_USERDATA_DIR = "/tmp/"
 
-func usernameToPath(username string) {
+func usernameToPath(username string) string {
 	/*
 		Given a username, returns the filepath
 		where the backup will be located.
+		
+		NOTE: Go treats "/" as the path separator on
+		all platforms.
 	*/
-	return PEERCHAT_USERDATA_DIR
-			+ os.PathSeparator
-			+ u.name + ".gob"
+	return PEERCHAT_USERDATA_DIR + "/" + username + ".gob"
 }
 
 func (u *User) Serialize() {
 	/*
 		Serializes this User struct.
 	*/
-	path = usernameToPath(u.name)
+	path := usernameToPath(u.name)
 	encodeFile, err := os.Create(path)
 	if err != nil {
 		panic(err)
@@ -35,7 +36,7 @@ func (u *User) Serialize() {
 
 	// encode and write to file
 	encoder := gob.NewEncoder(encodeFile)
-	if err := encoder.Encode(node); err != nil {
+	if err := encoder.Encode(u); err != nil {
 		panic(err)
 	}
 	encodeFile.Close()
@@ -47,7 +48,7 @@ func Deserialize(username string) *User {
 		it into a new DhtNode, which is 
 		returned. 
 	*/
-	path = usernameToPath(username)
+	path := usernameToPath(username)
 	decodeFile, err := os.Open(path)
 	if err != nil {
 		panic(err)
@@ -56,9 +57,9 @@ func Deserialize(username string) *User {
 
 	// create decoder
 	decoder := gob.NewDecoder(decodeFile)
-	newNode := new(User)
-	decoder.Decode(&newNode)
-	return newNode
+	newUser := new(User)
+	decoder.Decode(&newUser)
+	return newUser
 }
 
 func loadTable(username, myIpAddr string) *User {
@@ -76,14 +77,14 @@ func loadTable(username, myIpAddr string) *User {
 	if user.node.IpAddr != myIpAddr {
 		
 		// otherwise, create a new nodeId
-		user.node.nodeId = Sha1(myIpAddr)
+		user.node.NodeId = Sha1(myIpAddr)
 		
 		// and rearrange the table based on new nodeId
 		// first, get a list of all (nodeId, ipAddr) pairs
-		routingEntries := make([]RoutingEntry)
+		routingEntries := make([IDLen][]RoutingEntry)
 		
 		// for each k-buckets row
-		for row := range user.node.routingTable {
+		for row := range user.node.RoutingTable {
 		
 			// for each RoutingEntry in row
 			for entry := range row {
@@ -92,7 +93,7 @@ func loadTable(username, myIpAddr string) *User {
 		}
 		
 		// now delete old routing table and replace with a new one
-		user.node.routingTable = make([IDLen][]RoutingEntry)
+		user.node.RoutingTable = make([IDLen][]RoutingEntry)
 		
 		// then, for each pair, call:
 		// updateRoutingTable(nodeId ID, IpAddr string)
@@ -127,11 +128,10 @@ func (user *User) CheckStatus(ipAddr string) Status {
 	return Online
 }
 
-func Login(username string, userIpAddr string) *User{
-	routingTable := loadTable(username)
+func Login(username string, userIpAddr string) *User {
+	routingTable := loadTable(username, userIpAddr)
 	node := MakeNode(username, userIpAddr, routingTable)
 	user := &User{node: node, name: username}
-	
 	return user
 }
 
