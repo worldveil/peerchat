@@ -78,52 +78,48 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 // StoreUser RPC handler
 //this just stores the user in your kv
 func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply) error {	
-	entry := RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr}
-	node.updateRoutingTable(entry)
-	node.kv[Sha1(args.AnnouncedUsername)] = args.AnnouncedIpAddr
+	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
+	node.kv[Sha1(args.AnnouncedUsername)] = args.QueryingIpAddr
 	return nil
 }
 
 // called by makeNode
 // tells the entire network: I'm a node and I'm online
-// does nodeLookup(node.NodeId) in order to populate other node's routing table with my info
-// does nodeLookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node
 func (node *DhtNode) announceUser(username string, ipAddr string) {
-	// loop through routing table, ping each one until one responds (responding node is bootstrap node)
-	for _, bucket := range node.RoutingTable{
-		for _, entry := range bucket{
-			if node.Ping(entry) {
-				//entry is bootstrap node
-			}
-		}
+	// does idLookup(node.NodeId) in order to populate other node's routing table with my info
+	node.idLookup(node.NodeId, "Node")
+	// does idLookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node
+	kClosestEntryDists, _ := node.idLookup(Sha1(username), "Node")
+	args := &StoreUserArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: ipAddr, AnnouncedUsername: username}
+	for _, entryDist := range kClosestEntryDists{
+		var reply PingReply
+		ok := call(entryDist.routingEntry.ipAddr, "DhtNode.StoreUserHandler", args, &reply)
 	}
-
 }
 
 // FindNode RPC handler
 // all this does is call getClosest on K nodes
 // returns k sorted slice of RoutingEntryDist from my routing table
-func (node *DhtNode) FindNodeHandler(args *FindNodeArgs, reply *FindNodeReply) error {
+func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error {
 	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
-	reply.TryNodes = node.getClosest(K, args.TargetNodeId)
-	// reply.QueriedNodeId = node.nodeId //remove1
+	reply.TryNodes = node.getClosest(K, args.TargetId)
 	return nil
 }
 
 // helper function called by both FindUser and AnnounceUser
 // returns a k-length slice of RoutingEntriesDist sorted in increasing order of dist from 
-func (node *DhtNode) nodeLookup(nodeId ID) []RoutingEntryDist{
+func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDist, string) {
 	// get the closest nodes to the desired node ID
 	// then add to a stack. we'll 
-	closestNodes := node.getClosest(Alpha, nodeId)
+	closestNodes := node.getClosest(Alpha, targetId)
 	triedNodes := make(map[ID]bool)
 
 	// send the initial min(Alpha, # of closest Node)
 	// messages in flight to start the process
-	replyChannel := make(chan *FindNodeReply, Alpha)
+	replyChannel := make(chan *FindIdReply, Alpha)
 	sent := 0
 	for _, entryDist := range closestNodes{
-		go node.sendFindNodeQuery(entryDist.routingEntry, replyChannel)
+		go node.sendFindIdQuery(entryDist.routingEntry, replyChannel, targetType)
 		triedNodes[entryDist.routingEntry.nodeId] = true
 		sent++
 	}
@@ -132,12 +128,15 @@ func (node *DhtNode) nodeLookup(nodeId ID) []RoutingEntryDist{
 	// requests up to alpha requests
 	for {
 		reply := <-replyChannel
+		if targetType == "User" && reply.TargetIpAddr != "" {
+			return []RoutingEntryDist{} , reply.TargetIpAddr
+		}
 		// process the reply, see if we are done
 		// if we need to break because of stop cond: send done channel
 		combined := append(closestNodes, reply.TryNodes...)
 		sortutil.AscByField(combined, "distance")[: int(math.Min(float64(K), float64(len(combined))))]
 		if isEqual(combined, closestNodes) { //closest Nodes have not changed
-			return closestNodes
+			return closestNodes, ""
 		}
 		closestNodes = combined
 		sent--
@@ -150,7 +149,7 @@ func (node *DhtNode) nodeLookup(nodeId ID) []RoutingEntryDist{
 				//find first value not in tried nodes
 				_, already_tried := triedNodes[entryDist.routingEntry.nodeId]
 				if ! already_tried{
-					go node.sendFindNodeQuery(entryDist.routingEntry, replyChannel)
+					go node.sendFindIdQuery(entryDist.routingEntry, replyChannel, targetType)
 					sent++
 					break
 				}
@@ -159,17 +158,17 @@ func (node *DhtNode) nodeLookup(nodeId ID) []RoutingEntryDist{
 	}	
 }
 
-func (node *DhtNode) sendFindNodeQuery(entry RoutingEntry, replyChannel chan *FindNodeReply) {
+func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *FindIdReply, targetType string) {
 	/*
 		This function is generally called as a separate goroutine. At the end of the call, 
 		the reply is added to the done Channel, which is read by a separate thread. 
 	*/
 	ok := false
-	args := &FindNodeArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: "???", TargetNodeId: entry.nodeId}
-	var reply FindNodeReply
+	args := &FindIdArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: "???", TargetId: entry.nodeId}
+	var reply FindIdReply
 	
 	for !ok {
-		ok = call(entry.ipAddr, "DhtNode.FindNodeHandler", args, &reply)
+		ok = call(entry.ipAddr, "DhtNode.Find" + targetType + "Handler", args, &reply)
 		if !ok {
 			log.Printf("Failed! Will try again.")
 		}
@@ -178,17 +177,31 @@ func (node *DhtNode) sendFindNodeQuery(entry RoutingEntry, replyChannel chan *Fi
 	replyChannel <- &reply
 }
 
-// GetUser RPC handlers
-func (node *DhtNode) GetUserHandler(args *GetUserArgs, reply *GetUserReply) error {
+// FindUser RPC handlers
+//checks if user is in, if not, return false
+func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error {
 	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
+	ipAddr, exists := node.kv[args.TargetId]
+	if exists {
+		reply.TargetIpAddr = ipAddr
+	} else{
+		reply.TryNodes = node.getClosest(K, args.TargetId)
+	}	
 	return nil
 }
 
-// GetUser RPC API
-// returns IP of username
-func (node *DhtNode) GetUser(username string) string {
-
-	return ""
+// FindUser RPC API
+// returns IP of username or "" if can't find IP of username
+func (node *DhtNode) FindUser(username string) string {
+	targetId := Sha1(username)
+	//check if have locally
+	ipAddr, exists := node.kv[targetId]
+	if exists {
+		return ipAddr
+	} 
+	//do a idLookup to get K closest to username- query them in order of ascending distance until finds username
+	_, ipAddr = node.idLookup(targetId, "User")	
+	return ipAddr
 }
 
 // Ping RPC handlers
