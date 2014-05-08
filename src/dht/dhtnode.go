@@ -4,6 +4,9 @@ import "log"
 import "math"
 import "github.com/pmylund/sortutil"
 import "strings"
+import "net"
+import "net/rpc"
+import "encoding/gob"
 
 type DhtNode struct {
 	IpAddr string
@@ -11,6 +14,7 @@ type DhtNode struct {
 	RoutingTable [IDLen][]RoutingEntry // map from NodeId to IP- a IDLen X K matrix
 	kv map[ID]string // map from username to IP
 	port string
+	Dead bool
 }
 
 func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
@@ -257,5 +261,44 @@ func MakeNode(username string, myIpAddr string) *DhtNode {
 	node.kv = make(map[ID]string)
 	node.MakeEmptyRoutingTable()
 	node.port = strings.Split(myIpAddr, ":")[1]
+	node.Dead = false
+	
+	// register which objects RPC can serialize/deserialize
+	gob.Register(SendMessageArgs{})
+	gob.Register(SendMessageReply{})
+	gob.Register(StoreUserArgs{})
+	gob.Register(StoreUserReply{})
+	gob.Register(FindIdArgs{})
+	gob.Register(FindIdReply{})
+	gob.Register(PingArgs{})
+	gob.Register(PingReply{})
+	
+	// register the exported methods and
+	// create an RPC server
+	rpcs := rpc.NewServer()
+	rpcs.Register(node)
+	
+	// set up a connection listener
+	l, e := net.Listen("tcp", myIpAddr)
+	if e != nil {
+		log.Fatal("listen error: ", e)
+	}
+	
+	// spin off go routine to listen for connections
+	go func() {
+		for !node.Dead {
+			conn, err := l.Accept()
+			if err != nil {
+				log.Fatal("listen error: ", err);
+			}
+			
+			// spin off goroutine to handle
+			// RPC requests from other nodes
+			go rpcs.ServeConn(conn)
+		}
+		
+		log.Printf("Server %s shutting down...", myIpAddr)
+	}()
+	
 	return node
 }
