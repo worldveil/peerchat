@@ -21,7 +21,7 @@ type Status string
 const Debug=1
 
 func Print(tag string, format string, a ...interface{}) (n int, err error) {
-	tag = "["+tag+"] "
+	tag = "["+tag+"]		"
 	if Debug > 0 {
 		n, err = fmt.Printf(tag + format + "\n", a...)
 	}
