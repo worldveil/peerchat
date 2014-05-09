@@ -29,19 +29,32 @@ func TestBasic(t *testing.T) {
 	// user1 starts the Peerchat network, and
 	// user2 joins by bootstrapping
 	user1 := Register(username1, localIp + port1, "")
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Millisecond * 500)
 	user2 := Register(username2, localIp + port2, localIp + port1)
-	fmt.Println(user1, user2)
+
+	time.Sleep(time.Millisecond * 500)
+
+	// tests that we can find both users!
+	u1_ip := user2.node.FindUser(username1)
+	assertEqual(t, u1_ip, localIp+port1)
+	u2_ip := user1.node.FindUser(username2)
+	assertEqual(t, u2_ip, localIp+port2)
+
+
 	
 	// users exchange messages
-	user1.SendMessage(username2, "Hi Frans! Wanna play squash?")
-	time.Sleep(time.Second * 1)
-	user2.SendMessage(username1, "Sure Alice, what time?")
+	// user1.SendMessage(username2, "Hi Frans! Wanna play squash?")
+	// time.Sleep(time.Second * 1)
+	// user2.SendMessage(username1, "Sure Alice, what time?")
+}
+
+func TestManyRegistrations(t *testing.T) {
+
 }
 
 
 
-func check(t *testing.T, out, ans interface{}) {
+func assertEqual(t *testing.T, out, ans interface{}) {
     if out != ans {
         t.Fatalf("wanted %v, got %v", ans, out)
     }
@@ -63,22 +76,22 @@ func TestCommonUnit(t *testing.T) {
     //common unit tests
 
     //Sha1 Test
-    check(t, Sha1("abc"), Sha1("abc"))
+    assertEqual(t, Sha1("abc"), Sha1("abc"))
     if Sha1("fjkels") == Sha1("qwewqi") {
         t.Fatalf("Sha1 collision")
     }
     //reference Sha1 computed at www.sha1-online.com and lowest 8 bytes converted to decimal
-    check(t, Sha1("Forrest"), ID(10556789446649181072))
-    check(t, Sha1("testing testing 123"), ID(16871972680281001427))
+    assertEqual(t, Sha1("Forrest"), ID(10556789446649181072))
+    assertEqual(t, Sha1("testing testing 123"), ID(16871972680281001427))
 
     //find_n
     a := ID(0)
     b := ID(1)
     c := ID(math.MaxUint64)
     d := ID(1 << 15)
-    check(t, find_n(a, b), uint(63))
-    check(t, find_n(a, c), uint(0))
-    check(t, find_n(a, d), uint(48))
+    assertEqual(t, find_n(a, b), uint(63))
+    assertEqual(t, find_n(a, c), uint(0))
+    assertEqual(t, find_n(a, d), uint(48))
 }
 
 func TestDhtNodeUnit(t *testing.T) {
@@ -108,6 +121,7 @@ func TestDhtNodeUnit(t *testing.T) {
         t.Fatalf("wanted %v, got %v, in0, out3")
     }
     //
+    fmt.Println()
 
 
 }
