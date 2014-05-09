@@ -121,8 +121,12 @@ func TestManySends(t *testing.T) {
     fmt.Println("testing lookup...")
     time.Sleep(time.Second)
     users["0"].SendMessage("4", "hello 4")
-    users["4"].SendMessage("0", "hi 0")
-    users["0"].SendMessage("9", "hello 9")
+    time.Sleep(10)
+    assertEqual(t, users["4"].messageHistory["0"][0].Content, "hello 4")
+
+    //users["4"].SendMessage("0", "hi 0")
+    //users["0"].SendMessage("9", "hello 9")
+
 }
 
 func assertEqual(t *testing.T, out, ans interface{}) {
