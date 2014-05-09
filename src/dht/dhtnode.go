@@ -8,6 +8,7 @@ import "strings"
 import "net"
 import "net/rpc"
 import "encoding/gob"
+import "sync"
 
 const ApiTag = "API"
 const DHTHelperTag = "HELPER"
@@ -22,6 +23,7 @@ type DhtNode struct {
 	kv map[ID]string // map from username to IP
 	port string
 	Dead chan bool
+    mu sync.Mutex
 }
 
 //this gets called when another node is contacting this node through any API method!
@@ -140,6 +142,8 @@ func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error
 // helper function called by both FindUser and AnnounceUser
 // returns a k-length slice of RoutingEntriesDist sorted in increasing order of dist from 
 func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDist, string) {
+    node.mu.Lock()
+    defer node.mu.Unlock()
     Print(DHTHelperTag, "Node %v calling idLookup, targetId: %v, targetType: %v", Short(node.NodeId), Short(targetId), targetType)
 	// get the closest nodes to the desired node ID
 	// then add to a stack. we'll 
