@@ -127,6 +127,7 @@ func loadUser(username, myIpAddr string) *User {
 				}			
 			}
 		}
+		user.node.AnnounceUser(username, myIpAddr)
 
 	// there was not, create a new User	
 	} else {
@@ -135,7 +136,6 @@ func loadUser(username, myIpAddr string) *User {
 		node := MakeNode(username, myIpAddr)
 		user = &User{node: node, name: username, pendingMessages: emptyPendingMessages}
 	}
-	user.node.AnnounceUser(username, myIpAddr)
 	
 	return user
 }

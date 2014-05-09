@@ -149,6 +149,22 @@ func isEqual(entry1 []RoutingEntryDist, entry2 []RoutingEntryDist) bool{
 	return true
 }
 
+func removeDuplicates(slice []RoutingEntryDist) []RoutingEntryDist{
+	uniques := make(map[RoutingEntryDist]bool)
+	for _, entryDist := range slice{
+		uniques[entryDist] = true
+	}
+	new_slice := []RoutingEntryDist{}
+	for key, _ := range uniques{
+		new_slice = append(new_slice, key)
+	}
+	return new_slice
+}
+
+func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
+	return append(slice[:index], append(slice[index + 1:], slice[index])...)
+}
+
 // call() sends an RPC to the rpcname handler on server srv
 // with arguments args, waits for the reply, and leaves the
 // reply in reply. the reply argument should be a pointer
