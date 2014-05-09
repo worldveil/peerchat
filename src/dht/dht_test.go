@@ -74,7 +74,7 @@ func registerMany(num_users int) map[string]*User{
 
 func TestManyRegistrations(t *testing.T) {
 	
-	users := registerMany(40)
+	users := registerMany(30)
 	time.Sleep(time.Second)
 	for _, user := range users{
 		user.node.AnnounceUser(user.name, user.node.IpAddr)
