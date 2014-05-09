@@ -9,7 +9,7 @@ import "strconv"
 // Configurable constants
 const (
 	IDLen = 64
-	K = 4
+	K = 8
 	Alpha = 3
 )
 
