@@ -237,7 +237,7 @@ func Login(username string, userIpAddr string) *User {
 	
 	Print(UserTag, "Attempting to log on with username=%s and ip=%s...", username, userIpAddr) 
 	user := loadUser(username, userIpAddr)
-	go user.startSender()
+//	go user.startSender()
 	return user
 }
 
