@@ -130,7 +130,8 @@ func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 // all this does is call getClosest on K nodes
 // returns k sorted slice of RoutingEntryDist from my routing table
 func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error {
-    Print(HandlerTag, "Node %v FindNodeHandler called by %v, TargetId: %v", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
+    Print(HandlerTag, "Node %v FindNodeHandler called by %v, TargetId: %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId))
+	reply.QueriedNodeId = node.NodeId
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	reply.TryNodes = node.getClosest(K, args.TargetId)
 	return nil
@@ -169,6 +170,7 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 	// requests up to alpha requests
 	for {
 		reply := <-replyChannel
+		Print(DHTHelperTag, "Node %v received Find%v response from %v", Short(node.NodeId), targetType, Short(reply.QueriedNodeId))
 		if targetType == "User" && reply.TargetIpAddr != "" {
 			return []RoutingEntryDist{} , reply.TargetIpAddr
 		}
@@ -180,8 +182,15 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 		//remove duplicates
 		combined = removeDuplicates(combined)
 		sortutil.AscByField(combined, "Distance")
+		done := true
+		for _, entryDist := range combined {
+			_, already_tried := triedNodes[entryDist.RoutingEntry.NodeId]
+			if !already_tried {
+				done = false
+			}
+		}
 
-		if isEqual(combined, closestNodes) { //closest Nodes have not changed
+		if isEqual(combined, closestNodes) && done { //closest Nodes have not changed
 			Print(DHTHelperTag, "Node %v is exiting ID lookup because it's closest nodes have not changed! %v", Short(node.NodeId), closestNodes)
 			return closestNodes, ""
 		}
@@ -228,16 +237,16 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 // FindUser RPC handlers
 //checks if user is in, if not, return false
 func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error {
-    Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. My kv is %v", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId, node.kv)
-
+    Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. My kv is %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId), node.kv)
+    reply.QueriedNodeId = node.NodeId
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	ipAddr, exists := node.kv[args.TargetId]
 	if exists {
 		reply.TargetIpAddr = ipAddr
-		Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. Target user is in my map! returning user", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
+		Print(HandlerTag, "Node %v FindUserHandler (finished) called by %v, TargetId: %v. Target user is in my map! returning user", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
 	} else{
 		reply.TryNodes = node.getClosest(K, args.TargetId)
-		Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. Target user is NOT in my map! returning closest nodes", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
+		Print(HandlerTag, "Node %v FindUserHandler (finished) called by %v, TargetId: %v. Target user is NOT in my map! returning closest nodes", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
 	}	
 	return nil
 }

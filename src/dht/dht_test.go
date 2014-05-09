@@ -5,8 +5,12 @@ import "runtime"
 import "fmt"
 import "time"
 import "math"
+import "strconv"
+
 // Signal failures with the following:
 // t.Fatalf("error message here")
+
+const localIp = "127.0.0.1"
 
 func TestBasic(t *testing.T) {
 	/*
@@ -20,7 +24,6 @@ func TestBasic(t *testing.T) {
 	*/
 	runtime.GOMAXPROCS(4)
 
-	localIp := "127.0.0.1"
 	port1 := ":4444"
 	port2 := ":5555"
 	username1 := "Alice"
@@ -29,10 +32,10 @@ func TestBasic(t *testing.T) {
 	// user1 starts the Peerchat network, and
 	// user2 joins by bootstrapping
 	user1 := Register(username1, localIp + port1, "")
-	time.Sleep(time.Millisecond * 500)
+	time.Sleep(time.Millisecond * 50)
 	user2 := Register(username2, localIp + port2, localIp + port1)
 
-	time.Sleep(time.Millisecond * 500)
+	time.Sleep(time.Millisecond * 50)
 
 	// tests that we can find both users!
 	u1_ip := user2.node.FindUser(username1)
@@ -48,7 +51,35 @@ func TestBasic(t *testing.T) {
 	// user2.SendMessage(username1, "Sure Alice, what time?")
 }
 
+
+func registerMany(num_users int) map[string]*User{
+	users := make(map[string]*User)
+
+	bootstrap := ""
+
+	for i :=0; i < num_users; i++{
+		username := strconv.Itoa(i)
+		ipAddr := localIp + ":" + strconv.Itoa(i + 6000)
+		user := Register(username, ipAddr, bootstrap)
+		bootstrap = localIp + ":" + strconv.Itoa(i + 6000)
+		time.Sleep(time.Millisecond * 500)
+		users[username] = user
+	}
+
+	return users
+
+}
+
 func TestManyRegistrations(t *testing.T) {
+	users := registerMany(6)
+
+	for _, user := range users{
+		for targetUsername, targetUser := range users{
+			targetIp := user.node.FindUser(targetUsername)
+			assertEqual(t, targetIp, targetUser.node.IpAddr)
+			fmt.Println("Correct")
+		}
+	}
 
 }
 

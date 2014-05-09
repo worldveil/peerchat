@@ -84,6 +84,7 @@ type FindIdArgs struct {
 }
 
 type FindIdReply struct {
+	QueriedNodeId ID
 	TryNodes []RoutingEntryDist // if list is of length 1, then we found it
 	TargetIpAddr string
 }
