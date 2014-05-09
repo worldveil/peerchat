@@ -9,7 +9,7 @@ import "strconv"
 // Configurable constants
 const (
 	IDLen = 64
-	K = 8
+	K = 4
 	Alpha = 3
 )
 
@@ -28,12 +28,8 @@ func Print(tag string, format string, a ...interface{}) (n int, err error) {
 	return
 }
 
-func Short(id ID) string {
-	my_int := int(id)
-	if my_int < 0 {
-		my_int = my_int * -1
-	}
-	my_string := strconv.Itoa(my_int)
+func Short(id ID) string{
+	my_string := strconv.FormatUint(uint64(id), 10)
 	return my_string[:4]
 }
 

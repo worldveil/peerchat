@@ -74,7 +74,7 @@ func registerMany(num_users int) map[string]*User{
 
 func TestManyRegistrations(t *testing.T) {
 	
-	users := registerMany(10)
+	users := registerMany(5)
 	for _, user := range users{
 		for targetUsername, targetUser := range users{
 			targetIp := user.node.FindUser(targetUsername)

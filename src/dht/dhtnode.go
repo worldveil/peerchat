@@ -8,7 +8,6 @@ import "strings"
 import "net"
 import "net/rpc"
 import "encoding/gob"
-import "sync"
 
 const ApiTag = "API"
 const DHTHelperTag = "HELPER"
@@ -23,20 +22,19 @@ type DhtNode struct {
 	kv map[ID]string // map from username to IP
 	port string
 	Dead chan bool
-    mu sync.Mutex
 }
 
 //this gets called when another node is contacting this node through any API method!
 func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
-	Print(DHTHelperTag, "Node %v calling updateRoutingTable for ip: %s", Short(node.NodeId), entry.IpAddr)
+	Print(DHTHelperTag, "Node %v calling updateRoutingTable for node: %v, ip: %s", Short(node.NodeId), Short(entry.NodeId), entry.IpAddr)
 	// ordering of K bucket is from LRS to MRS
 	n := find_n(entry.NodeId, node.NodeId) // n is the bucket index- index of first bit that doesn't match
 	bucket := node.RoutingTable[n]
-	defer func(){node.RoutingTable[n] = bucket}()
 	//check if node is in routing table
 	for idx, r_entry := range(bucket){
 		if r_entry == entry{
 			bucket = moveToEnd(bucket, idx)
+			node.RoutingTable[n] = bucket
 			return
 		}
 	} // new entry is not in bucket
@@ -49,12 +47,14 @@ func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
 		}
 		bucket = moveToEnd(bucket, 0)	// move to end
 	}
+	node.RoutingTable[n] = bucket
+	Print(DHTHelperTag, "Node %v done updateRoutingTable Routing table is: %v", Short(node.NodeId), node.RoutingTable)
 }
 
 // get the alpha closest nodes to node ID in order to find user/node
 // returns a slice of RoutingEntriesDist sorted in increasing order of dist from 
 func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []RoutingEntryDist{
-	Print(DHTHelperTag, "Node %v calling getClosest to get %d closest to %v", Short(node.NodeId), target_result_len, targetNodeId)
+	Print(DHTHelperTag, "Node %v calling getClosest to get %d closest to %v", Short(node.NodeId), target_result_len, Short(targetNodeId))
 	empty := true
 	for _, bucket := range node.RoutingTable {
 		if len(bucket) > 0{
@@ -116,10 +116,10 @@ func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 	//put myself in routing table
 	node.kv[Sha1(username)] = ipAddr
 
-    Print(ApiTag, "Node %v calling AnnounceUser, username: %v, ipAddr: %v", Short(node.NodeId), username, ipAddr)
-	// does idLookup(node.NodeId) in order to populate other node's routing table with my info
+	Print(ApiTag, "Node %v calling AnnounceUser, username: %v, ipAddr: %v", Short(node.NodeId), username, ipAddr)
+	// does lookup(node.NodeId) in order to populate other node's routing table with my info
 	node.idLookup(node.NodeId, "Node")
-	// does idLookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node
+	// does lookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node
 	kClosestEntryDists, _ := node.idLookup(Sha1(username), "Node")
 	args := &StoreUserArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: ipAddr, AnnouncedUsername: username}
 	for _, entryDist := range kClosestEntryDists{
@@ -132,7 +132,7 @@ func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 // all this does is call getClosest on K nodes
 // returns k sorted slice of RoutingEntryDist from my routing table
 func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error {
-    Print(HandlerTag, "Node %v FindNodeHandler called by %v, TargetId: %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId))
+	Print(HandlerTag, "Node %v FindNodeHandler called by %v, TargetId: %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId))
 	reply.QueriedNodeId = node.NodeId
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	reply.TryNodes = node.getClosest(K, args.TargetId)
@@ -142,9 +142,8 @@ func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error
 // helper function called by both FindUser and AnnounceUser
 // returns a k-length slice of RoutingEntriesDist sorted in increasing order of dist from 
 func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDist, string) {
-    node.mu.Lock()
-    defer node.mu.Unlock()
-    Print(DHTHelperTag, "Node %v calling idLookup, targetId: %v, targetType: %v", Short(node.NodeId), Short(targetId), targetType)
+	Print(DHTHelperTag, "Node %v calling idLookup, targetId: %v, targetType: %v", Short(node.NodeId), Short(targetId), targetType)
+	fmt.Println("my routing table is", node.RoutingTable)
 	// get the closest nodes to the desired node ID
 	// then add to a stack. we'll 
 	closestNodes := node.getClosest(Alpha, targetId)
@@ -153,15 +152,17 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 		return []RoutingEntryDist{}, ""
 	}
 	triedNodes := make(map[ID]bool)
-	if targetType == "User" {
+	if targetType == "User" || targetType == "Node"{
 		triedNodes[node.NodeId] = true
+		closestNodes= append(closestNodes, RoutingEntryDist{Distance: Xor(node.NodeId, targetId), RoutingEntry: RoutingEntry{NodeId: node.NodeId, IpAddr: node.IpAddr}})
+		sortutil.AscByField(closestNodes, "Distance")
+		closestNodes = removeDuplicates(closestNodes)
 	}
 	// send the initial min(Alpha, # of closest Node)
 	// messages in flight to start the process
 	replyChannel := make(chan *FindIdReply, Alpha)
 	sent := 0
 	for _, entryDist := range closestNodes{
-		// fmt.Println("calling query")
 		_, already_tried := triedNodes[entryDist.RoutingEntry.NodeId]
 		if ! already_tried {
 			go node.sendFindIdQuery(entryDist.RoutingEntry, replyChannel, targetId, targetType)
@@ -173,11 +174,13 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 	// now process replies as they arrive, spinning off new
 	// requests up to alpha requests
 	for {
+		fmt.Println("waiting for channel")
 		reply := <-replyChannel
-		Print(DHTHelperTag, "Node %v received Find%v response from %v", Short(node.NodeId), targetType, Short(reply.QueriedNodeId))
+		Print(DHTHelperTag, "Node %v received Find%v response from %v. Response is %v, %v", Short(node.NodeId), targetType, Short(reply.QueriedNodeId), reply.TryNodes, reply.TargetIpAddr)
 		if targetType == "User" && reply.TargetIpAddr != "" {
 			return []RoutingEntryDist{} , reply.TargetIpAddr
 		}
+		fmt.Println("closest nodes is ", closestNodes)
 		// process the reply, see if we are done
 		// if we need to break because of stop cond: send done channel
 		combined := append(closestNodes, reply.TryNodes...)
@@ -194,17 +197,25 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 			}
 		}
 
+		fmt.Println(done)
+
+
 		if isEqual(combined, closestNodes) && done { //closest Nodes have not changed
 			Print(DHTHelperTag, "Node %v is exiting ID lookup because it's closest nodes have not changed! %v", Short(node.NodeId), closestNodes)
 			return closestNodes, ""
 		}
+		fmt.Println("has not converged yet combined is", combined, "closest nodes is", closestNodes, "not equal yet")
+		fmt.Println("already tries is:", triedNodes)
+		fmt.Println("node ID", node.NodeId, "short", Short(node.NodeId))
 		closestNodes = combined
 		sent--
 		// then check to see if we are still under
 		// the total of alpha messages still in flight
 		// and if so, send more
 		for i := sent; i < Alpha; i++ {
+			fmt.Println("still messages out there", sent)
 			for _, entryDist := range closestNodes{
+				fmt.Println(entryDist)
 				//find first value not in tried nodes
 				_, already_tried := triedNodes[entryDist.RoutingEntry.NodeId]
 				if ! already_tried {
@@ -213,7 +224,6 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 					sent++
 					break
 				}
-                //break
 			}			
 		}		
 	}	
@@ -224,14 +234,13 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 		This function is generally called as a separate goroutine. At the end of the call, 
 		the reply is added to the done Channel, which is read by a separate thread. 
 	*/
-	Print(DHTHelperTag, "%s sending FindId query with target %s", node.IpAddr, targetId)
+	Print(DHTHelperTag, "Node %v sending find%vQuery to node %v. Looking for ID %v", Short(node.NodeId), targetType, Short(entry.NodeId), Short(targetId))
 	
 	ok := false
 	args := &FindIdArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: node.IpAddr, TargetId: targetId}
 	var reply FindIdReply
 	
 	for !ok {
-		Print(DHTHelperTag, "Node %v sending find%vQuery to node %v. Looking for ID %v", Short(node.NodeId), targetType, Short(entry.NodeId), Short(targetId))
 		ok = call(entry.IpAddr, "DhtNode.Find" + targetType + "Handler", args, &reply)
 		if !ok {
 			log.Printf("Failed! Will try again.")
@@ -244,8 +253,8 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 // FindUser RPC handlers
 //checks if user is in, if not, return false
 func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error {
-    Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. My kv is %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId), node.kv)
-    reply.QueriedNodeId = node.NodeId
+	Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. My kv is %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId), node.kv)
+	reply.QueriedNodeId = node.NodeId
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	ipAddr, exists := node.kv[args.TargetId]
 	if exists {
