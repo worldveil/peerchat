@@ -4,6 +4,8 @@ import "time"
 import "os"
 import "encoding/gob"
 import "sync"
+import "net"
+import "net/rpc"
 
 const UserTag = "USER"
 
@@ -144,10 +146,10 @@ func loadUser(username, myIpAddr string) *User {
 //SendMessage RPC Handler
 func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageReply) error {
 	Print(UserTag, "I recieved: %s, from %s at %v", args.Content, args.FromUsername, args.Timestamp)
-	if ok, val := MessageHistory[args.FromUsername]; !ok {
-		MessageHistory[args.FromUsername] = make([]*SendMessageArgs, 0)
+	if _, ok := user.MessageHistory[args.FromUsername]; !ok {
+		user.MessageHistory[args.FromUsername] = make([]*SendMessageArgs, 0)
 	}
-	MessageHistory[args.FromUsername] = append(MessageHistory[args.FromUsername], args)
+	user.MessageHistory[args.FromUsername] = append(user.MessageHistory[args.FromUsername], args)
 	
 	Print(UserTag, "%s's convo with %s: %v", user.name, args.FromUsername, user.MessageHistory)
 	return nil
@@ -242,7 +244,37 @@ func Login(username string, userIpAddr string) *User {
 	
 	Print(UserTag, "Attempting to log on with username=%s and ip=%s...", username, userIpAddr) 
 	user := loadUser(username, userIpAddr)
-	//go user.startSender()
+	go user.startSender()
+	
+	// register the exported methods and
+	// create an RPC server
+	gob.Register(User{})
+	rpcs := rpc.NewServer()
+	rpcs.Register(user)
+	
+	// set up a connection listener
+	l, e := net.Listen("tcp", userIpAddr)
+	if e != nil {
+		Print(UserTag, "User listen error: %v", e)
+	}
+	
+	// spin off go routine to listen for connections
+	go func() {
+		Print(UserTag, "User connection listener for %s starting...", userIpAddr)
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				Print(UserTag, "User listen error")
+			}
+			
+			// spin off goroutine to handle
+			// RPC requests from other nodes
+			go rpcs.ServeConn(conn)
+		}
+		
+		Print(StartTag, "User server %s shutting down...", userIpAddr)
+	}()
+	
 	return user
 }
 

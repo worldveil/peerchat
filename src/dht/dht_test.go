@@ -117,12 +117,13 @@ func TestManyMoreRegistrations(t *testing.T) {
 }
 
 func TestManySends(t *testing.T) {
-    users := registerMany(30)
+    users := registerMany(5)
     fmt.Println("testing lookup...")
     time.Sleep(time.Second)
     users["0"].SendMessage("4", "hello 4")
-    time.Sleep(10)
-    assertEqual(t, users["4"].messageHistory["0"][0].Content, "hello 4")
+    time.Sleep(5 * time.Second)
+    fmt.Printf("histoary = %v", users["4"].MessageHistory["0"])
+    assertEqual(t, users["4"].MessageHistory["0"][0].Content, "hello 4")
 
     //users["4"].SendMessage("0", "hi 0")
     //users["0"].SendMessage("9", "hello 9")
