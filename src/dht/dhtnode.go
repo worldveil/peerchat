@@ -148,16 +148,21 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 		return []RoutingEntryDist{}, ""
 	}
 	triedNodes := make(map[ID]bool)
-
+	if targetType == "User" {
+		triedNodes[node.NodeId] = true
+	}
 	// send the initial min(Alpha, # of closest Node)
 	// messages in flight to start the process
 	replyChannel := make(chan *FindIdReply, Alpha)
 	sent := 0
 	for _, entryDist := range closestNodes{
 		// fmt.Println("calling query")
-		go node.sendFindIdQuery(entryDist.RoutingEntry, replyChannel, targetId, targetType)
-		triedNodes[entryDist.RoutingEntry.NodeId] = true
-		sent++
+		_, already_tried := triedNodes[entryDist.RoutingEntry.NodeId]
+		if ! already_tried {
+			go node.sendFindIdQuery(entryDist.RoutingEntry, replyChannel, targetId, targetType)
+			triedNodes[entryDist.RoutingEntry.NodeId] = true
+			sent++
+		}
 	}
 
 	// now process replies as they arrive, spinning off new
@@ -223,13 +228,16 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 // FindUser RPC handlers
 //checks if user is in, if not, return false
 func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error {
-    Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
+    Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. My kv is %v", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId, node.kv)
+
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	ipAddr, exists := node.kv[args.TargetId]
 	if exists {
 		reply.TargetIpAddr = ipAddr
+		Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. Target user is in my map! returning user", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
 	} else{
 		reply.TryNodes = node.getClosest(K, args.TargetId)
+		Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. Target user is NOT in my map! returning closest nodes", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
 	}	
 	return nil
 }
