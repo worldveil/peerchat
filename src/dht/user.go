@@ -3,15 +3,17 @@ package dht
 import "time"
 import "os"
 import "encoding/gob"
+import "sync"
 
 const UserTag = "USER"
 
 type User struct {
+	mu sync.Mutex
 	node *DhtNode
 	name string
 	// messageHistory map[string]string
 	
-	pendingMessages map[string][]string // ipAddr => slice of messages to send
+	pendingMessages map[string][]*SendMessageArgs // username => slice of pending messages to apply
 }
 
 const PEERCHAT_USERDATA_DIR = "/tmp"
@@ -131,7 +133,7 @@ func loadUser(username, myIpAddr string) *User {
 	// there was not, create a new User	
 	} else {
 		Print(UserTag, "Could not load user from file, creating a new User...")
-		emptyPendingMessages := make(map[string][]string)
+		emptyPendingMessages := make(map[string][]*SendMessageArgs)
 		node := MakeNode(username, myIpAddr)
 		user = &User{node: node, name: username, pendingMessages: emptyPendingMessages}
 	}
@@ -142,28 +144,74 @@ func loadUser(username, myIpAddr string) *User {
 
 //SendMessage RPC Handler
 func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageReply) error{
-	Print(UserTag, "My Message: %s", args.Content)
+	Print(UserTag, "I recieved: %s, from %s at %v", args.Content, args.FromUsername, args.Timestamp)
 	return nil
 }
 
 //SendMessage API
 func (user *User) SendMessage(username string, content string) {
+	/*
+		Sends message with content to username. In offline case, we save the message for later
+	*/
 	ipAddr := user.node.FindUser(username)
 	status := user.CheckStatus(ipAddr)
 	
-	Print(UserTag, "Sending message \"%s\" to %s with status=%s", content, username, status)
+	Print(UserTag, "Queuing message \"%s\" to %s with status=%s", content, username, status)
 	
-	switch status {
+	// Add this message to pending messages
+	user.mu.Lock()
+	if _, ok := user.pendingMessages[username]; !ok {
+	    user.pendingMessages[username] = make([]*SendMessageArgs, 0)
+	} 
+	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now(), ToUsername: username, FromUsername: user.name}
+	user.pendingMessages[username] = append(user.pendingMessages[username], pendingMessage)
+	user.mu.Unlock()
+}
+
+func (user *User) startSender() {
+	/*
+		A separate thread which waits until Nodes 
+		are up to send them messages
+	*/
+	for !user.node.Dead {
 		
-		case Online:
-			args := &SendMessageArgs{Content: content, ToUsername: username, FromUsername: user.name, Timestamp: time.Now()}
-			var reply SendMessageReply
-			call(ipAddr, "User.SendMessageHandler", args, &reply)
-			Print(UserTag, "Sending \"%s\" to %s at %s...", content, username, ipAddr)
-			
-		case Offline:
-			// if not, queue?
-			Print(UserTag, "Recipient user=%s, ipAddr=%s was not online, queuing \"%s\" for later...", username, ipAddr, content)
+		user.mu.Lock()
+		for username, pendings := range user.pendingMessages {
+			for len(pendings) > 0 {
+				
+				ip := user.node.FindUser(username)
+				status := user.CheckStatus(ip)
+				if status == Online {
+					
+					// pop first message args off of slice
+					var args SendMessageArgs
+					if len(pendings) == 1 { 
+						args, pendings = *pendings[0], make([]*SendMessageArgs, 0)
+					} else if len(pendings) > 1 {
+						// "Pop(0)" slice operation taken from:
+						// https://code.google.com/p/go-wiki/wiki/SliceTricks
+						args, pendings = *pendings[0], pendings[1:]
+					}
+					
+					// create reply and send to user
+					var reply SendMessageReply
+					Print(UserTag, "SenderLoop: Sending \"%s\" to %s...", args.Content, args.ToUsername)
+					ok := call(ip, "User.SendMessageHandler", args, &reply)
+					
+					// if our message sending failed, put back on queue
+					if ! ok {
+						// put message back on front of queue and continue
+						// "Insert" slice operation taken from:
+						// https://code.google.com/p/go-wiki/wiki/SliceTricks
+						pendings = append(pendings[:0], append([]*SendMessageArgs{&args}, pendings[0:]...)...)
+					} 
+				}
+			}
+		}
+		
+		user.mu.Unlock()
+		Print(UserTag, "Sender loop for %s running...", user.name)
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
@@ -171,7 +219,6 @@ func (user *User) CheckStatus(ipAddr string) Status {
 	/*
 		Returns status of IP Address endpoint. 
 	*/
-	
 	Print(UserTag, "Checking status: %s is Online (##HARDCODED##)", ipAddr) 
 	return Online
 }
@@ -184,6 +231,7 @@ func Login(username string, userIpAddr string) *User {
 	
 	Print(UserTag, "Attempting to log on with username=%s and ip=%s...", username, userIpAddr) 
 	user := loadUser(username, userIpAddr)
+	go user.startSender()
 	return user
 }
 
