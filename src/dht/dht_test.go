@@ -6,7 +6,7 @@ import "fmt"
 import "time"
 import "math"
 import "strconv"
-
+import "math/rand"
 // Signal failures with the following:
 // t.Fatalf("error message here")
 
@@ -72,9 +72,14 @@ func registerMany(num_users int) map[string]*User{
 
 }
 
+func checkLookup(t *testing.T, user1 *User, user2 *User) {
+    resp := user1.node.FindUser(user2.name)
+    assertEqual(t, resp, user2.node.IpAddr)
+}    
+
 func TestManyRegistrations(t *testing.T) {
 	
-	users := registerMany(30)
+	users := registerMany(20)
 	time.Sleep(time.Second)
 	for _, user := range users{
 		user.node.AnnounceUser(user.name, user.node.IpAddr)
@@ -82,10 +87,11 @@ func TestManyRegistrations(t *testing.T) {
 	time.Sleep(time.Second)
 	for _, user := range users{
 		fmt.Println(user.name, user.node.kv)
-		for targetUsername, targetUser := range users{
-			targetIp := user.node.FindUser(targetUsername)
-			assertEqual(t, targetIp, targetUser.node.IpAddr)
-			fmt.Println("Correct")
+		for _, targetUser := range users{
+			checkLookup(t, user, targetUser)
+            //targetIp := user.node.FindUser(targetUsername)
+			//assertEqual(t, targetIp, targetUser.node.IpAddr)
+			//fmt.Println("Correct")
 		}
 	}
 	
@@ -94,6 +100,30 @@ func TestManyRegistrations(t *testing.T) {
 	}
 }
 
+func TestManyMoreRegistrations(t *testing.T) {
+    size := 100
+    users := registerMany(size)
+    time.Sleep(time.Second)
+    for _, user := range users {
+        user.node.AnnounceUser(user.name, user.node.IpAddr)
+    }
+    time.Sleep(time.Second)
+    for i:=0; i<20; i++ {
+        idx :=  strconv.Itoa(rand.Int() % size)
+        idx2 := strconv.Itoa(rand.Int() % size)
+        fmt.Println("idx: ", idx, " idx2: ", idx2)
+        checkLookup(t, users[idx], users[idx2])
+    }
+}
+
+func TestManySends(t *testing.T) {
+    users := registerMany(30)
+    fmt.Println("testing lookup...")
+    time.Sleep(time.Second)
+    users["0"].SendMessage("4", "hello 4")
+    users["4"].SendMessage("0", "hi 0")
+    users["0"].SendMessage("9", "hello 9")
+}
 
 func assertEqual(t *testing.T, out, ans interface{}) {
     if out != ans {
