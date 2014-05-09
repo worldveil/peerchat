@@ -11,10 +11,10 @@ import "time"
 func main() {	
 	
 	//sync()
-	//async()
+	async()
 	//startChat()
 	
-	table()
+	// table()
 }
 
 type Entry struct {
@@ -58,7 +58,7 @@ func async() {
 	
 	for i := 0; i < alpha; i++ {
 		reply := <-doneChannel
-		log.Printf("Message recieved! %s", reply.OK)
+		log.Printf("Message recieved? %v", reply.OK)
 	} 
 }
 

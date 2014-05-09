@@ -56,6 +56,15 @@ func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
 // returns a slice of RoutingEntriesDist sorted in increasing order of dist from 
 func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []RoutingEntryDist{
 	Print(DHTHelperTag, "Node %v calling getClosest to get %d closest to %v", Short(node.NodeId), target_result_len, targetNodeId)
+	empty := true
+	for _, bucket := range node.RoutingTable{
+		if len(bucket) > 0{
+			empty = false
+		}
+	}
+	if empty {
+		Print(DHTHelperTag, "Warning: Node %v has empty routing table!", Short(node.NodeId))
+	}
 	res := make([]RoutingEntryDist, 0, target_result_len)
 	orig_bucket_idx := find_n(targetNodeId, node.NodeId)
 	bucket_idx := orig_bucket_idx
@@ -104,6 +113,8 @@ func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply
 // called by User
 // tells the entire network: I'm a node and I'm online
 func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
+	// put bootstrap node in my routing table
+
     Print(ApiTag, "Node %v calling AnnounceUser, username: %v, ipAddr: %v", Short(node.NodeId), username, ipAddr)
 	// does idLookup(node.NodeId) in order to populate other node's routing table with my info
 	node.idLookup(node.NodeId, "Node")
@@ -234,7 +245,7 @@ func (node *DhtNode) FindUser(username string) string {
 
 // Ping RPC handlers
 func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
-	Print(HandlerTag, "%v PingHandler called", Short(node.NodeId))
+	Print(HandlerTag, "Node %v PingHandler called", Short(node.NodeId))
 	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
 	reply.QueriedNodeId = node.NodeId
 	return nil
@@ -244,10 +255,16 @@ func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
 //assume you already have them in routing table
 func (node *DhtNode) Ping(routingEntry RoutingEntry) bool{
 	Print(ApiTag, "Node %v calling Ping on ip: %s", Short(node.NodeId), routingEntry.ipAddr)
-	args := &PingArgs{QueryingNodeId: node.NodeId}
+	args := &PingArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: node.IpAddr}
 	var reply PingReply
+	Print(Temp, "reply is %v", reply)
 	ok := call(routingEntry.ipAddr, "DhtNode.PingHandler", args, &reply)
-	return ok && (reply.QueriedNodeId == routingEntry.nodeId)
+	Print(Temp, "reply is %v. Ok? %v", reply, ok)
+	if ok && (reply.QueriedNodeId == routingEntry.nodeId){
+		node.updateRoutingTable(routingEntry)
+		return true
+	}
+	return false
 }
 
 func (node *DhtNode) MakeEmptyRoutingTable() {
@@ -300,6 +317,7 @@ func MakeNode(username string, myIpAddr string) *DhtNode {
 		Print(StartTag, "Connection listener for %s starting...", myIpAddr)
 		for !node.Dead {
 			conn, err := l.Accept()
+			Print(Temp, "accepted message %v", conn)
 			if err != nil {
 				log.Fatal("listen error: ", err);
 			}
@@ -309,7 +327,7 @@ func MakeNode(username string, myIpAddr string) *DhtNode {
 			go rpcs.ServeConn(conn)
 		}
 		
-		Print(StartTag, "Server %s shutting down...", myIpAddr)
+		Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", myIpAddr)
 	}()
 	
 	return node

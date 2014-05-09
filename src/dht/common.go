@@ -165,16 +165,16 @@ func isEqual(entry1 []RoutingEntryDist, entry2 []RoutingEntryDist) bool{
 // please don't change this function.
 //
 func call(srv string, rpcname string, args interface{}, reply interface{}) bool {
-	c, errx := rpc.Dial("unix", srv)
+	client, errx := rpc.Dial("tcp", srv)
 	if errx != nil {
 		return false
 	}
-	defer c.Close()
+	defer client.Close()
 		
-	err := c.Call(rpcname, args, reply)
+	err := client.Call(rpcname, args, reply)
 	if err == nil {
 		return true
-	} 
+	}
 
 	fmt.Println(err)
 	return false

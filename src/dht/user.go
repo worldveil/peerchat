@@ -133,7 +133,7 @@ func loadUser(username, myIpAddr string) *User {
 		Print(UserTag, "Could not load user from file, creating a new User...")
 		emptyPendingMessages := make(map[string][]string)
 		node := MakeNode(username, myIpAddr)
-		user = &User{node: node, name: username, pendingMessages: emptyPendingMessages}		
+		user = &User{node: node, name: username, pendingMessages: emptyPendingMessages}
 	}
 	user.node.AnnounceUser(username, myIpAddr)
 	

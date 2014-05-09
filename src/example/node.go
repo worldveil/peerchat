@@ -4,6 +4,7 @@ import "net"
 import "net/rpc"
 import "log"
 import "encoding/gob"
+import "fmt"
 
 type Node struct {
 	Address string
@@ -79,6 +80,7 @@ func MakeNode(hostname, port string) *Node {
 	
 	// set up a connection listener
 	l, e := net.Listen("tcp", address)
+	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!",address)
 	if e != nil {
 		log.Fatal("listen error: ", e)
 	}
