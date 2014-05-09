@@ -191,7 +191,7 @@ func Register(username string, userIpAddr string, bootstrapIpAddr string) *User 
 	
 	Print(UserTag, "Bootstraping register with %s using username=%s, ip=%s, and ...", bootstrapIpAddr, username, userIpAddr) 
 	user := Login(username, userIpAddr)
-	routingEntry := RoutingEntry{ipAddr: bootstrapIpAddr, nodeId: Sha1(bootstrapIpAddr)}
+	routingEntry := RoutingEntry{IpAddr: bootstrapIpAddr, NodeId: Sha1(bootstrapIpAddr)}
 	ok := user.node.Ping(routingEntry)
 	if !ok {
 		Print(UserTag, "Could not boostrap: %s was not online!", bootstrapIpAddr) 

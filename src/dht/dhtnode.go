@@ -1,5 +1,6 @@
 package dht
 
+import "fmt"
 import "log"
 import "math"
 import "github.com/pmylund/sortutil"
@@ -29,9 +30,9 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 
 //this gets called when another node is contacting this node through any API method!
 func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
-	Print(DHTHelperTag, "Node %v calling updateRoutingTable for ip: %s", Short(node.NodeId), entry.ipAddr)
+	Print(DHTHelperTag, "Node %v calling updateRoutingTable for ip: %s", Short(node.NodeId), entry.IpAddr)
 	// ordering of K bucket is from LRS to MRS
-	n := find_n(entry.nodeId, node.NodeId) // n is the bucket index- index of first bit that doesn't match
+	n := find_n(entry.NodeId, node.NodeId) // n is the bucket index- index of first bit that doesn't match
 	bucket := node.RoutingTable[n]
 	defer func(){node.RoutingTable[n] = bucket}()
 	//check if node is in routing table
@@ -73,13 +74,13 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 		bucket := node.RoutingTable[bucket_idx]
 
 		for _, value := range(bucket){
-			xor := Xor(targetNodeId, value.nodeId)
+			xor := Xor(targetNodeId, value.NodeId)
 			if len(res) < target_result_len {
-				res = append(res, RoutingEntryDist{routingEntry: value, distance: xor})
+				res = append(res, RoutingEntryDist{RoutingEntry: value, Distance: xor})
 			} else { //bucket is full	
-				sortutil.AscByField(res, "distance")
-				if xor < res[len(res) - 1].distance{
-					res[len(res) - 1] = RoutingEntryDist{routingEntry: value, distance: xor}
+				sortutil.AscByField(res, "Distance")
+				if xor < res[len(res) - 1].Distance{
+					res[len(res) - 1] = RoutingEntryDist{RoutingEntry: value, Distance: xor}
 				}
 			}
 		}
@@ -97,7 +98,8 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 			bucket_idx--
 		}
 	}
-	sortutil.AscByField(res, "dist")
+	fmt.Println(res)
+	sortutil.AscByField(res, "Distance")
 	return res
 }
 
@@ -105,7 +107,7 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 //this just stores the user in your kv
 func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply) error {
 	Print(HandlerTag, "%v StoreUserHandler called. kv[%v]=%v", Short(node.NodeId), args.AnnouncedUsername, args.QueryingIpAddr)
-	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
+	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	node.kv[Sha1(args.AnnouncedUsername)] = args.QueryingIpAddr
 	return nil
 }
@@ -123,7 +125,7 @@ func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 	args := &StoreUserArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: ipAddr, AnnouncedUsername: username}
 	for _, entryDist := range kClosestEntryDists{
 		var reply PingReply
-		call(entryDist.routingEntry.ipAddr, "DhtNode.StoreUserHandler", args, &reply)
+		call(entryDist.RoutingEntry.IpAddr, "DhtNode.StoreUserHandler", args, &reply)
 	}
 }
 
@@ -132,7 +134,7 @@ func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 // returns k sorted slice of RoutingEntryDist from my routing table
 func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error {
     Print(HandlerTag, "Node %v FindNodeHandler called, TargetId: %v", Short(node.NodeId), args.TargetId)
-	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
+	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	reply.TryNodes = node.getClosest(K, args.TargetId)
 	return nil
 }
@@ -155,8 +157,8 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 	replyChannel := make(chan *FindIdReply, Alpha)
 	sent := 0
 	for _, entryDist := range closestNodes{
-		go node.sendFindIdQuery(entryDist.routingEntry, replyChannel, targetType)
-		triedNodes[entryDist.routingEntry.nodeId] = true
+		go node.sendFindIdQuery(entryDist.RoutingEntry, replyChannel, targetType)
+		triedNodes[entryDist.RoutingEntry.NodeId] = true
 		sent++
 	}
 
@@ -170,7 +172,7 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 		// process the reply, see if we are done
 		// if we need to break because of stop cond: send done channel
 		combined := append(closestNodes, reply.TryNodes...)
-		sortutil.AscByField(combined, "distance")
+		sortutil.AscByField(combined, "Distance")
 		combined = combined[: int(math.Min(float64(K), float64(len(combined))))]
 		if isEqual(combined, closestNodes) { //closest Nodes have not changed
 			return closestNodes, ""
@@ -184,9 +186,9 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 		for i := sent; i < Alpha; i++ {
 			for _, entryDist := range closestNodes{
 				//find first value not in tried nodes
-				_, already_tried := triedNodes[entryDist.routingEntry.nodeId]
-				if ! already_tried{
-					go node.sendFindIdQuery(entryDist.routingEntry, replyChannel, targetType)
+				_, already_tried := triedNodes[entryDist.RoutingEntry.NodeId]
+				if ! already_tried {
+					go node.sendFindIdQuery(entryDist.RoutingEntry, replyChannel, targetType)
 					sent++
 					break
 				}
@@ -201,11 +203,11 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 		the reply is added to the done Channel, which is read by a separate thread. 
 	*/
 	ok := false
-	args := &FindIdArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: "???", TargetId: entry.nodeId}
+	args := &FindIdArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: node.IpAddr, TargetId: entry.NodeId}
 	var reply FindIdReply
 	
 	for !ok {
-		ok = call(entry.ipAddr, "DhtNode.Find" + targetType + HandlerTag, args, &reply)
+		ok = call(entry.IpAddr, "DhtNode.Find" + targetType + "Handler", args, &reply)
 		if !ok {
 			log.Printf("Failed! Will try again.")
 		}
@@ -218,7 +220,7 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 //checks if user is in, if not, return false
 func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error {
     Print(HandlerTag, "Node %v FindUserHandler called, TargetId: %v", Short(node.NodeId), args.TargetId)
-	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
+	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	ipAddr, exists := node.kv[args.TargetId]
 	if exists {
 		reply.TargetIpAddr = ipAddr
@@ -246,7 +248,7 @@ func (node *DhtNode) FindUser(username string) string {
 // Ping RPC handlers
 func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
 	Print(HandlerTag, "Node %v PingHandler called", Short(node.NodeId))
-	node.updateRoutingTable(RoutingEntry{nodeId: args.QueryingNodeId, ipAddr: args.QueryingIpAddr})
+	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	reply.QueriedNodeId = node.NodeId
 	return nil
 }
@@ -254,13 +256,11 @@ func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
 // Ping RPC API
 //assume you already have them in routing table
 func (node *DhtNode) Ping(routingEntry RoutingEntry) bool{
-	Print(ApiTag, "Node %v calling Ping on ip: %s", Short(node.NodeId), routingEntry.ipAddr)
+	Print(ApiTag, "Node %v calling Ping on ip: %s", Short(node.NodeId), routingEntry.IpAddr)
 	args := &PingArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: node.IpAddr}
 	var reply PingReply
-	Print(Temp, "reply is %v", reply)
-	ok := call(routingEntry.ipAddr, "DhtNode.PingHandler", args, &reply)
-	Print(Temp, "reply is %v. Ok? %v", reply, ok)
-	if ok && (reply.QueriedNodeId == routingEntry.nodeId){
+	ok := call(routingEntry.IpAddr, "DhtNode.PingHandler", args, &reply)
+	if ok && (reply.QueriedNodeId == routingEntry.NodeId){
 		node.updateRoutingTable(routingEntry)
 		return true
 	}
@@ -300,6 +300,7 @@ func MakeNode(username string, myIpAddr string) *DhtNode {
 	gob.Register(FindIdReply{})
 	gob.Register(PingArgs{})
 	gob.Register(PingReply{})
+	gob.Register(RoutingEntryDist{})
 	
 	// register the exported methods and
 	// create an RPC server
@@ -317,7 +318,6 @@ func MakeNode(username string, myIpAddr string) *DhtNode {
 		Print(StartTag, "Connection listener for %s starting...", myIpAddr)
 		for !node.Dead {
 			conn, err := l.Accept()
-			Print(Temp, "accepted message %v", conn)
 			if err != nil {
 				log.Fatal("listen error: ", err);
 			}
@@ -328,6 +328,7 @@ func MakeNode(username string, myIpAddr string) *DhtNode {
 		}
 		
 		Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", myIpAddr)
+		fmt.Println("here for no reason")
 	}()
 	
 	return node

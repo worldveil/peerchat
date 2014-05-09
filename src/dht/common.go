@@ -45,13 +45,13 @@ func Short(id ID) string {
 // type Err string
 
 type RoutingEntry struct {
-	ipAddr string
-	nodeId ID
+	IpAddr string
+	NodeId ID
 }
 
 type RoutingEntryDist struct {
-	distance ID
-	routingEntry RoutingEntry
+	Distance ID
+	RoutingEntry RoutingEntry
 }
 
 type ID uint64
