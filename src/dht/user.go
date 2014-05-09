@@ -255,7 +255,7 @@ func Register(username string, userIpAddr string, bootstrapIpAddr string) *User 
 		Print(UserTag, "Could not boostrap: %s was not online!", bootstrapIpAddr)
 		//return some error
 	}
-	
+	time.Sleep(10*time.Millisecond)
 	user.node.AnnounceUser(username, userIpAddr)
 	return user
 }

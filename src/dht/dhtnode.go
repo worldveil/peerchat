@@ -184,10 +184,10 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 		// process the reply, see if we are done
 		// if we need to break because of stop cond: send done channel
 		combined := append(closestNodes, reply.TryNodes...)
+		combined = removeDuplicates(combined)
 		sortutil.AscByField(combined, "Distance")
 		combined = combined[: int(math.Min(float64(K), float64(len(combined))))]
-		//remove duplicates
-		combined = removeDuplicates(combined)
+		
 		sortutil.AscByField(combined, "Distance")
 		done := true
 		for _, entryDist := range combined {
@@ -198,7 +198,6 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 		}
 
 		fmt.Println(done)
-
 
 		if isEqual(combined, closestNodes) && done { //closest Nodes have not changed
 			Print(DHTHelperTag, "Node %v is exiting ID lookup because it's closest nodes have not changed! %v", Short(node.NodeId), closestNodes)

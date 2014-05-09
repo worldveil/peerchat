@@ -64,7 +64,7 @@ func registerMany(num_users int) map[string]*User{
 		ipAddr := localIp + ":" + strconv.Itoa(i + 7000)
 		user := Register(username, ipAddr, bootstrap)
 		bootstrap = localIp + ":" + strconv.Itoa(i + 7000)
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(time.Millisecond * 5)
 		users[username] = user
 	}
 
@@ -74,8 +74,14 @@ func registerMany(num_users int) map[string]*User{
 
 func TestManyRegistrations(t *testing.T) {
 	
-	users := registerMany(5)
+	users := registerMany(10)
+	time.Sleep(time.Second)
 	for _, user := range users{
+		user.node.AnnounceUser(user.name, user.node.IpAddr)
+	}
+	time.Sleep(time.Second)
+	for _, user := range users{
+		fmt.Println(user.name, user.node.kv)
 		for targetUsername, targetUser := range users{
 			targetIp := user.node.FindUser(targetUsername)
 			assertEqual(t, targetIp, targetUser.node.IpAddr)
