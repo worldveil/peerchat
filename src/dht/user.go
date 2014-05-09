@@ -129,7 +129,6 @@ func loadUser(username, myIpAddr string) *User {
 				}			
 			}
 		}
-		user.node.AnnounceUser(username, myIpAddr)
 
 	// there was not, create a new User	
 	} else {
@@ -138,6 +137,7 @@ func loadUser(username, myIpAddr string) *User {
 		node := MakeNode(username, myIpAddr)
 		user = &User{node: node, name: username, pendingMessages: emptyPendingMessages}
 	}
+	user.node.AnnounceUser(username, myIpAddr)
 	
 	return user
 }
@@ -210,7 +210,7 @@ func (user *User) startSender() {
 		}
 		
 		user.mu.Unlock()
-		Print(UserTag, "Sender loop for %s running...", user.name)
+		Print(UserTag, "Sender loop for %s running, pending: %v...", user.name, user.pendingMessages)
 		time.Sleep(500 * time.Millisecond)
 	}
 }
