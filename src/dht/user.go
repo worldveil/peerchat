@@ -11,8 +11,7 @@ type User struct {
 	mu sync.Mutex
 	node *DhtNode
 	name string
-	// messageHistory map[string]string
-	
+	MessageHistory map[string][]*SendMessageArgs // username => [ ordered slice of messages from that user ]
 	pendingMessages map[string][]*SendMessageArgs // username => slice of pending messages to apply
 }
 
@@ -143,8 +142,14 @@ func loadUser(username, myIpAddr string) *User {
 }
 
 //SendMessage RPC Handler
-func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageReply) error{
+func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageReply) error {
 	Print(UserTag, "I recieved: %s, from %s at %v", args.Content, args.FromUsername, args.Timestamp)
+	if ok, val := MessageHistory[args.FromUsername]; !ok {
+		MessageHistory[args.FromUsername] = make([]*SendMessageArgs, 0)
+	}
+	MessageHistory[args.FromUsername] = append(MessageHistory[args.FromUsername], args)
+	
+	Print(UserTag, "%s's convo with %s: %v", user.name, args.FromUsername, user.MessageHistory)
 	return nil
 }
 
