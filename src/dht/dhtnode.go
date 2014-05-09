@@ -209,6 +209,7 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 					sent++
 					break
 				}
+                //break
 			}			
 		}		
 	}	
