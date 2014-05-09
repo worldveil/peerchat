@@ -26,14 +26,17 @@ func TestBasic(t *testing.T) {
 	username1 := "Alice"
 	username2 := "Frans"
 
-
+	// user1 starts the Peerchat network, and
+	// user2 joins by bootstrapping
 	user1 := Register(username1, localIp + port1, "")
-	
 	time.Sleep(time.Second * 1)
-	
 	user2 := Register(username2, localIp + port2, localIp + port1)
-
 	fmt.Println(user1, user2)
+	
+	// users exchange messages
+	user1.SendMessage(username2, "Hi Frans! Wanna play squash?")
+	time.Sleep(time.Second * 1)
+	user2.SendMessage(username1, "Sure Alice, what time?")
 }
 
 
