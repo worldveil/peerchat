@@ -21,7 +21,7 @@ type DhtNode struct {
 	RoutingTable [IDLen][]RoutingEntry // map from NodeId to IP- a IDLen X K matrix
 	kv map[ID]string // map from username to IP
 	port string
-	Dead bool
+	Dead chan bool
 }
 
 //this gets called when another node is contacting this node through any API method!
@@ -308,7 +308,7 @@ func MakeNode(username string, myIpAddr string) *DhtNode {
 	node.kv = make(map[ID]string)
 	node.MakeEmptyRoutingTable()
 	node.port = strings.Split(myIpAddr, ":")[1]
-	node.Dead = false
+	node.Dead = make(chan bool, 10)
 	
 	Print(StartTag, "DHT Node created for username=%s with ip=%s, moving to gob setup...", username, myIpAddr)
 	
@@ -337,7 +337,7 @@ func MakeNode(username string, myIpAddr string) *DhtNode {
 	// spin off go routine to listen for connections
 	go func() {
 		Print(StartTag, "Connection listener for %s starting...", myIpAddr)
-		for !node.Dead {
+		for {
 			conn, err := l.Accept()
 			if err != nil {
 				log.Fatal("listen error: ", err);

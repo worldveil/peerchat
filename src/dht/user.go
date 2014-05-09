@@ -153,13 +153,8 @@ func (user *User) SendMessage(username string, content string) {
 	/*
 		Sends message with content to username. In offline case, we save the message for later
 	*/
-	ipAddr := user.node.FindUser(username)
-	status := user.CheckStatus(ipAddr)
-	
-	Print(UserTag, "Queuing message \"%s\" to %s with status=%s", content, username, status)
-	
-	// Add this message to pending messages
 	user.mu.Lock()
+	Print(UserTag, "Queuing message \"%s\" to %s", content, username)
 	if _, ok := user.pendingMessages[username]; !ok {
 	    user.pendingMessages[username] = make([]*SendMessageArgs, 0)
 	} 
@@ -173,38 +168,43 @@ func (user *User) startSender() {
 		A separate thread which waits until Nodes 
 		are up to send them messages
 	*/
-	for !user.node.Dead {
-		
-		user.mu.Lock()
-		for username, pendings := range user.pendingMessages {
-			for len(pendings) > 0 {
-				
-				ip := user.node.FindUser(username)
-				status := user.CheckStatus(ip)
-				if status == Online {
+	for {
+		select {
+			case <- user.node.Dead:
+			break
+			
+			default:
+			user.mu.Lock()
+			for username, pendings := range user.pendingMessages {
+				for len(pendings) > 0 {
 					
-					// pop first message args off of slice
-					var args SendMessageArgs
-					if len(pendings) == 1 { 
-						args, pendings = *pendings[0], make([]*SendMessageArgs, 0)
-					} else if len(pendings) > 1 {
-						// "Pop(0)" slice operation taken from:
-						// https://code.google.com/p/go-wiki/wiki/SliceTricks
-						args, pendings = *pendings[0], pendings[1:]
+					ip := user.node.FindUser(username)
+					status := user.CheckStatus(ip)
+					if status == Online {
+						
+						// pop first message args off of slice
+						var args SendMessageArgs
+						if len(pendings) == 1 { 
+							args, pendings = *pendings[0], make([]*SendMessageArgs, 0)
+						} else if len(pendings) > 1 {
+							// "Pop(0)" slice operation taken from:
+							// https://code.google.com/p/go-wiki/wiki/SliceTricks
+							args, pendings = *pendings[0], pendings[1:]
+						}
+						
+						// create reply and send to user
+						var reply SendMessageReply
+						Print(UserTag, "SenderLoop: Sending \"%s\" to %s...", args.Content, args.ToUsername)
+						ok := call(ip, "User.SendMessageHandler", args, &reply)
+						
+						// if our message sending failed, put back on queue
+						if ! ok {
+							// put message back on front of queue and continue
+							// "Insert" slice operation taken from:
+							// https://code.google.com/p/go-wiki/wiki/SliceTricks
+							pendings = append(pendings[:0], append([]*SendMessageArgs{&args}, pendings[0:]...)...)
+						} 
 					}
-					
-					// create reply and send to user
-					var reply SendMessageReply
-					Print(UserTag, "SenderLoop: Sending \"%s\" to %s...", args.Content, args.ToUsername)
-					ok := call(ip, "User.SendMessageHandler", args, &reply)
-					
-					// if our message sending failed, put back on queue
-					if ! ok {
-						// put message back on front of queue and continue
-						// "Insert" slice operation taken from:
-						// https://code.google.com/p/go-wiki/wiki/SliceTricks
-						pendings = append(pendings[:0], append([]*SendMessageArgs{&args}, pendings[0:]...)...)
-					} 
 				}
 			}
 		}
@@ -215,12 +215,18 @@ func (user *User) startSender() {
 	}
 }
 
-func (user *User) CheckStatus(ipAddr string) Status {
+func (user *User) CheckStatus(ipAddr string) string {
 	/*
 		Returns status of IP Address endpoint. 
 	*/
-	Print(UserTag, "Checking status: %s is Online (##HARDCODED##)", ipAddr) 
-	return Online
+	status := Online
+	routingEntry := RoutingEntry{IpAddr: ipAddr, NodeId: Sha1(ipAddr)}
+	ok := user.node.Ping(routingEntry)
+	if !ok {
+		status = Offline
+	}
+	Print(UserTag, "Checking status: %s is %s", ipAddr, status) 
+	return status
 }
 
 func Login(username string, userIpAddr string) *User {
@@ -237,18 +243,19 @@ func Login(username string, userIpAddr string) *User {
 
 func Register(username string, userIpAddr string, bootstrapIpAddr string) *User { 
 	/*
-		Attemps to register as a new user on the Peerchat network using 
+		Attempts to register as a new user on the Peerchat network using 
 		a known IP address as a boostrap. 
 	*/
-	
 	Print(UserTag, "Bootstraping register with %s using username=%s, ip=%s, and ...", bootstrapIpAddr, username, userIpAddr) 
 	user := Login(username, userIpAddr)
-	routingEntry := RoutingEntry{IpAddr: bootstrapIpAddr, NodeId: Sha1(bootstrapIpAddr)}
-	ok := user.node.Ping(routingEntry)
-	if !ok {
-		Print(UserTag, "Could not boostrap: %s was not online!", bootstrapIpAddr) 
+	
+	// check status of user we are about to bootstrap from
+	status := user.CheckStatus(bootstrapIpAddr)
+	if status == Offline {
+		Print(UserTag, "Could not boostrap: %s was not online!", bootstrapIpAddr)
 		//return some error
 	}
+	
 	user.node.AnnounceUser(username, userIpAddr)
 	return user
 }

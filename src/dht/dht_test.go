@@ -42,13 +42,15 @@ func TestBasic(t *testing.T) {
 	assertEqual(t, u1_ip, localIp+port1)
 	u2_ip := user1.node.FindUser(username2)
 	assertEqual(t, u2_ip, localIp+port2)
-
-
 	
 	// users exchange messages
-	// user1.SendMessage(username2, "Hi Frans! Wanna play squash?")
-	// time.Sleep(time.Second * 1)
-	// user2.SendMessage(username1, "Sure Alice, what time?")
+	user1.SendMessage(username2, "Hi Frans! Wanna play squash?")
+	time.Sleep(time.Second * 1)
+	user2.SendMessage(username1, "Sure Alice, what time?")
+	
+	// kill user nodes
+	user1.node.Dead <- true
+	user2.node.Dead <- true
 }
 
 
@@ -72,7 +74,6 @@ func registerMany(num_users int) map[string]*User{
 
 func TestManyRegistrations(t *testing.T) {
 	users := registerMany(6)
-
 	for _, user := range users{
 		for targetUsername, targetUser := range users{
 			targetIp := user.node.FindUser(targetUsername)
@@ -80,9 +81,11 @@ func TestManyRegistrations(t *testing.T) {
 			fmt.Println("Correct")
 		}
 	}
-
+	
+	for _, user := range users {
+		user.node.Dead <- true
+	}
 }
-
 
 
 func assertEqual(t *testing.T, out, ans interface{}) {

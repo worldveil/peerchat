@@ -17,7 +17,6 @@ const (
 	Online = "Online"
 	Offline = "Offline"
 )
-type Status string
 
 const Debug=1
 
