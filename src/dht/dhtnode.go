@@ -220,6 +220,8 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 		This function is generally called as a separate goroutine. At the end of the call, 
 		the reply is added to the done Channel, which is read by a separate thread. 
 	*/
+	Print(DHTHelperTag, "%s sending FindId query with target %s", node.IpAddr, targetId)
+	
 	ok := false
 	args := &FindIdArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: node.IpAddr, TargetId: targetId}
 	var reply FindIdReply
