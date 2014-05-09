@@ -147,9 +147,13 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 }
 
 //SendMessage API
-func (user *User) SendMessage(username string, content string){
+func (user *User) SendMessage(username string, content string) {
 	ipAddr := user.node.FindUser(username)
-	switch user.CheckStatus(ipAddr) {
+	status := user.CheckStatus(ipAddr)
+	
+	Print(UserTag, "Sending message \"%s\" to %s with status=%s", content, username, status)
+	
+	switch status {
 		
 		case Online:
 			args := &SendMessageArgs{Content: content, ToUsername: username, FromUsername: user.name, Timestamp: time.Now()}

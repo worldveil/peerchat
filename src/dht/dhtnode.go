@@ -58,7 +58,7 @@ func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
 func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []RoutingEntryDist{
 	Print(DHTHelperTag, "Node %v calling getClosest to get %d closest to %v", Short(node.NodeId), target_result_len, targetNodeId)
 	empty := true
-	for _, bucket := range node.RoutingTable{
+	for _, bucket := range node.RoutingTable {
 		if len(bucket) > 0{
 			empty = false
 		}
