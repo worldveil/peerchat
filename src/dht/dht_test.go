@@ -7,6 +7,8 @@ import "time"
 import "math"
 import "strconv"
 import "math/rand"
+import "os"
+
 // Signal failures with the following:
 // t.Fatalf("error message here")
 
@@ -114,7 +116,8 @@ func TestDhtNodeUnit(t *testing.T) {
 **	1) Starts two nodes
 **	2) Introduces node1 to node2
 **	3) Nodes send messages
-**  4) Verify messages were recieved and saved intact.
+**  4) Verify messages were recieved and 
+**     saved intact with no duplication.
 **	
 **	We verify the messages are not lost
 **	and arrive unaltered. 
@@ -127,6 +130,10 @@ func TestBasic(t *testing.T) {
 	port2 := ":5555"
 	username1 := "Alice"
 	username2 := "Frans"
+	
+	// remove any serialized users
+	os.Remove(UsernameToPath(username1))
+	os.Remove(UsernameToPath(username2))
 
 	// user1 starts the Peerchat network, and
 	// user2 joins by bootstrapping
@@ -155,6 +162,9 @@ func TestBasic(t *testing.T) {
 	// ensure the messages got there
 	assertEqual(t, user2.MessageHistory[username1][0].Content, msg1)
 	assertEqual(t, user1.MessageHistory[username2][0].Content, msg2)
+	
+	assertEqual(t, len(user2.MessageHistory[username1]), 1)
+	assertEqual(t, len(user1.MessageHistory[username2]), 1)
 	
 	// kill user nodes
 	user1.node.Dead <- true
