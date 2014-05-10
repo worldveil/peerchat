@@ -14,8 +14,7 @@ type User struct {
 	mu sync.Mutex
 	node *DhtNode
 	name string
-	// messageHistory map[string]string
-	
+	MessageHistory map[string][]*SendMessageArgs // username => messages we've gotten so far
 	pendingMessages map[string][]*SendMessageArgs // username => slice of pending messages to apply
 }
 
@@ -90,11 +89,11 @@ func Login(username string, userIpAddr string) *User {
 	
 	Print(UserTag, "Attempting to log on with username=%s and ip=%s...", username, userIpAddr) 
 	user := loadUser(username, userIpAddr)
-	if user != nil{
+	if user != nil {
 		user.setupUser()
 		time.Sleep(10*time.Millisecond)
 		user.node.AnnounceUser(username, userIpAddr)
-		// go user.startSender()
+		go user.startSender()
 	}
 	return user
 }
@@ -117,6 +116,7 @@ func RegisterAndLogin(username string, userIpAddr string, bootstrapIpAddr string
 
 	time.Sleep(10*time.Millisecond)
 	user.node.AnnounceUser(username, userIpAddr)
+	go user.startSender()
 	return user
 }
 
@@ -152,8 +152,9 @@ func (u *User) setupUser(){
 func makeUser(username string, ipAddr string) *User{
 	Print(UserTag, "Creating a new User...")
 	emptyPendingMessages := make(map[string][]*SendMessageArgs)
+	history := make(map[string][]*SendMessageArgs)
 	node := MakeNode(username, ipAddr)
-	user := &User{node: node, name: username, pendingMessages: emptyPendingMessages}
+	user := &User{node: node, name: username, pendingMessages: emptyPendingMessages, MessageHistory: history}
 	return user
 }
 
@@ -218,8 +219,17 @@ func loadUser(username, myIpAddr string) *User {
 }
 
 //SendMessage RPC Handler
-func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageReply) error{
-	Print(UserTag, "I recieved: %s, from %s at %v", args.Content, args.FromUsername, args.Timestamp)
+func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageReply) error {
+	
+	user.mu.Lock()
+	defer user.mu.Unlock()
+	
+	Print(UserTag, "%s recieved: %s, from %s at %v", user.name, args.Content, args.FromUsername, args.Timestamp)
+	if _, ok := user.MessageHistory[args.FromUsername]; !ok {
+	    user.pendingMessages[args.FromUsername] = make([]*SendMessageArgs, 0)
+	}
+	user.MessageHistory[args.FromUsername] = append(user.MessageHistory[args.FromUsername], args)
+	
 	return nil
 }
 
@@ -243,6 +253,7 @@ func (user *User) startSender() {
 		A separate thread which waits until Nodes 
 		are up to send them messages
 	*/
+	Print(UserTag, "Sender process for %s starting...", user.name)
 	for {
 		select {
 			case <- user.node.Dead:

@@ -114,6 +114,7 @@ func TestDhtNodeUnit(t *testing.T) {
 **	1) Starts two nodes
 **	2) Introduces node1 to node2
 **	3) Nodes send messages
+**  4) Verify messages were recieved and saved intact.
 **	
 **	We verify the messages are not lost
 **	and arrive unaltered. 
@@ -142,9 +143,18 @@ func TestBasic(t *testing.T) {
 	assertEqual(t, u2_ip, localIp+port2)
 	
 	// users exchange messages
-	user1.SendMessage(username2, "Hi Frans! Wanna play squash?")
+	msg1 := "Hi Frans! Wanna play squash?"
+	msg2 := "Sure Alice, what time?"
+	
+	user1.SendMessage(username2, msg1)
 	time.Sleep(time.Second * 1)
-	user2.SendMessage(username1, "Sure Alice, what time?")
+	user2.SendMessage(username1, msg2)
+	
+	time.Sleep(1 * time.Second)
+	
+	// ensure the messages got there
+	assertEqual(t, user2.MessageHistory[username1][0].Content, msg1)
+	assertEqual(t, user1.MessageHistory[username2][0].Content, msg2)
 	
 	// kill user nodes
 	user1.node.Dead <- true
@@ -157,7 +167,7 @@ func TestBasic(t *testing.T) {
 */
 func TestManyRegistrations(t *testing.T) {
 	
-	users := registerMany(30)
+	users := registerMany(50)
 	time.Sleep(time.Second)
 	for _, user := range users{
 		user.node.AnnounceUser(user.name, user.node.IpAddr)
