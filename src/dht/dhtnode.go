@@ -1,11 +1,10 @@
 package dht
 
-import "fmt"
+// import "fmt"
 import "log"
 import "math"
 import "github.com/pmylund/sortutil"
 import "strings"
-import "net"
 import "net/rpc"
 import "sync"
 import "encoding/gob"
@@ -314,19 +313,7 @@ func (node *DhtNode) MakeEmptyRoutingTable() {
 	node.RoutingTable = routingTable
 }
 
-//called when want to make a node from user.go
-func MakeNode(username string, myIpAddr string) *DhtNode {
-	/*
-		Creates a DHTNode with a given username, ip address, and routing table. 
-	*/
-	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr)}
-	node.kv = make(map[ID]string)
-	node.MakeEmptyRoutingTable()
-	node.port = strings.Split(myIpAddr, ":")[1]
-	node.Dead = make(chan bool, 10)
-	
-	Print(StartTag, "DHT Node created for username=%s with ip=%s, moving to gob setup...", username, myIpAddr)
-	
+func (node *DhtNode) SetupNode() *rpc.Server{
 	// register which objects RPC can serialize/deserialize
 	gob.Register(SendMessageArgs{})
 	gob.Register(SendMessageReply{})
@@ -337,35 +324,27 @@ func MakeNode(username string, myIpAddr string) *DhtNode {
 	gob.Register(PingArgs{})
 	gob.Register(PingReply{})
 	gob.Register(RoutingEntryDist{})
-	
+
 	// register the exported methods and
 	// create an RPC server
 	rpcs := rpc.NewServer()
 	rpcs.Register(node)
+
+	return rpcs
+
+}
+
+//called when want to make a node from user.go
+func MakeNode(username string, myIpAddr string) *DhtNode{
+	/*
+		Creates a DHTNode with a given username, ip address, and routing table. 
+	*/
+	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr)}
+	node.kv = make(map[ID]string)
+	node.MakeEmptyRoutingTable()
+	node.port = strings.Split(myIpAddr, ":")[1]
+	node.Dead = make(chan bool, 10)
 	
-	// set up a connection listener
-	l, e := net.Listen("tcp", myIpAddr)
-	if e != nil {
-		log.Fatal("listen error: ", e)
-	}
-	
-	// spin off go routine to listen for connections
-	go func() {
-		Print(StartTag, "Connection listener for %s starting...", myIpAddr)
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				log.Fatal("listen error: ", err);
-			}
-			
-			// spin off goroutine to handle
-			// RPC requests from other nodes
-			go rpcs.ServeConn(conn)
-		}
-		
-		Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", myIpAddr)
-		fmt.Println("here for no reason")
-	}()
-	
+	Print(StartTag, "DHT Node created for username=%s with ip=%s, moving to gob setup...", username, myIpAddr)	
 	return node
 }

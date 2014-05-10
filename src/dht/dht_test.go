@@ -31,9 +31,9 @@ func TestBasic(t *testing.T) {
 
 	// user1 starts the Peerchat network, and
 	// user2 joins by bootstrapping
-	user1 := Register(username1, localIp + port1, "")
+	user1 := RegisterAndLogin(username1, localIp + port1, "")
 	time.Sleep(time.Millisecond * 50)
-	user2 := Register(username2, localIp + port2, localIp + port1)
+	user2 := RegisterAndLogin(username2, localIp + port2, localIp + port1)
 
 	time.Sleep(time.Millisecond * 50)
 
@@ -62,7 +62,7 @@ func registerMany(num_users int) map[string]*User{
 	for i :=0; i < num_users; i++{
 		username := strconv.Itoa(i)
 		ipAddr := localIp + ":" + strconv.Itoa(i + 7000)
-		user := Register(username, ipAddr, bootstrap)
+		user := RegisterAndLogin(username, ipAddr, bootstrap)
 		bootstrap = localIp + ":" + strconv.Itoa(i + 7000)
 		time.Sleep(time.Millisecond * 5)
 		users[username] = user

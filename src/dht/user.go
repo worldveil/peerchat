@@ -4,6 +4,9 @@ import "time"
 import "os"
 import "encoding/gob"
 import "sync"
+import "net"
+import "log"
+import "fmt"
 
 const UserTag = "USER"
 
@@ -78,6 +81,82 @@ func Deserialize(username string) (bool, *User) {
 	return true, newUser
 }
 
+// might return nil- handled by Application
+func Login(username string, userIpAddr string) *User {
+	/*
+		Attempts to log into the Peerchat network by loading a previous configuration
+		and defaulting to creating a new one. 
+	*/
+	
+	Print(UserTag, "Attempting to log on with username=%s and ip=%s...", username, userIpAddr) 
+	user := loadUser(username, userIpAddr)
+	if user != nil{
+		user.setupUser()
+		time.Sleep(10*time.Millisecond)
+		user.node.AnnounceUser(username, userIpAddr)
+		// go user.startSender()
+	}
+	return user
+}
+
+func RegisterAndLogin(username string, userIpAddr string, bootstrapIpAddr string) *User { 
+	/*
+		Attempts to register as a new user on the Peerchat network using 
+		a known IP address as a boostrap. 
+	*/
+	Print(UserTag, "Bootstraping register with %s using username=%s, ip=%s, and ...", bootstrapIpAddr, username, userIpAddr) 
+	user := makeUser(username, userIpAddr)
+	user.setupUser()
+	
+	// check status of user we are about to bootstrap from
+	status := user.CheckStatus(bootstrapIpAddr)
+	if status == Offline {
+		Print(UserTag, "Could not boostrap: %s was not online!", bootstrapIpAddr)
+		//return some error
+	}
+
+	time.Sleep(10*time.Millisecond)
+	user.node.AnnounceUser(username, userIpAddr)
+	return user
+}
+
+func (u *User) setupUser(){
+	rpcs := u.node.SetupNode()
+	rpcs.Register(u)
+
+	// set up a connection listener
+	l, e := net.Listen("tcp", u.node.IpAddr)
+	if e != nil {
+		log.Fatal("listen error: ", e)
+	}
+	
+	// spin off go routine to listen for connections
+	go func() {
+		Print(StartTag, "Connection listener for %s starting...", u.node.IpAddr)
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				log.Fatal("listen error: ", err);
+			}
+			
+			// spin off goroutine to handle
+			// RPC requests from other nodes
+			go rpcs.ServeConn(conn)
+		}
+		
+		Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", u.node.IpAddr)
+		fmt.Println("here for no reason")
+	}()
+}
+
+func makeUser(username string, ipAddr string) *User{
+	Print(UserTag, "Creating a new User...")
+	emptyPendingMessages := make(map[string][]*SendMessageArgs)
+	node := MakeNode(username, ipAddr)
+	user := &User{node: node, name: username, pendingMessages: emptyPendingMessages}
+	return user
+}
+
 func loadUser(username, myIpAddr string) *User {
 	/*
 		This method loads the User struct for a given 
@@ -132,12 +211,8 @@ func loadUser(username, myIpAddr string) *User {
 
 	// there was not, create a new User	
 	} else {
-		Print(UserTag, "Could not load user from file, creating a new User...")
-		emptyPendingMessages := make(map[string][]*SendMessageArgs)
-		node := MakeNode(username, myIpAddr)
-		user = &User{node: node, name: username, pendingMessages: emptyPendingMessages}
+		user = nil
 	}
-	user.node.AnnounceUser(username, myIpAddr)
 	
 	return user
 }
@@ -227,36 +302,5 @@ func (user *User) CheckStatus(ipAddr string) string {
 	}
 	Print(UserTag, "Checking status: %s is %s", ipAddr, status) 
 	return status
-}
-
-func Login(username string, userIpAddr string) *User {
-	/*
-		Attempts to log into the Peerchat network by loading a previous configuration
-		and defaulting to creating a new one. 
-	*/
-	
-	Print(UserTag, "Attempting to log on with username=%s and ip=%s...", username, userIpAddr) 
-	user := loadUser(username, userIpAddr)
-//	go user.startSender()
-	return user
-}
-
-func Register(username string, userIpAddr string, bootstrapIpAddr string) *User { 
-	/*
-		Attempts to register as a new user on the Peerchat network using 
-		a known IP address as a boostrap. 
-	*/
-	Print(UserTag, "Bootstraping register with %s using username=%s, ip=%s, and ...", bootstrapIpAddr, username, userIpAddr) 
-	user := Login(username, userIpAddr)
-	
-	// check status of user we are about to bootstrap from
-	status := user.CheckStatus(bootstrapIpAddr)
-	if status == Offline {
-		Print(UserTag, "Could not boostrap: %s was not online!", bootstrapIpAddr)
-		//return some error
-	}
-	time.Sleep(10*time.Millisecond)
-	user.node.AnnounceUser(username, userIpAddr)
-	return user
 }
 
