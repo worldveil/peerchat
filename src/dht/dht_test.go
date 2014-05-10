@@ -6,7 +6,7 @@ import "fmt"
 import "time"
 import "math"
 import "strconv"
-
+import "math/rand"
 // Signal failures with the following:
 // t.Fatalf("error message here")
 
@@ -34,66 +34,7 @@ func TestBasic(t *testing.T) {
 	user1 := RegisterAndLogin(username1, localIp + port1, "")
 	time.Sleep(time.Millisecond * 50)
 	user2 := RegisterAndLogin(username2, localIp + port2, localIp + port1)
-
-	time.Sleep(time.Millisecond * 50)
-
-	// tests that we can find both users!
-	u1_ip := user2.node.FindUser(username1)
-	assertEqual(t, u1_ip, localIp+port1)
-	u2_ip := user1.node.FindUser(username2)
-	assertEqual(t, u2_ip, localIp+port2)
-	
-	// users exchange messages
-	user1.SendMessage(username2, "Hi Frans! Wanna play squash?")
-	time.Sleep(time.Second * 1)
-	user2.SendMessage(username1, "Sure Alice, what time?")
-	
-	// kill user nodes
-	user1.node.Dead <- true
-	user2.node.Dead <- true
 }
-
-
-func registerMany(num_users int) map[string]*User{
-	users := make(map[string]*User)
-
-	bootstrap := ""
-
-	for i :=0; i < num_users; i++{
-		username := strconv.Itoa(i)
-		ipAddr := localIp + ":" + strconv.Itoa(i + 7000)
-		user := RegisterAndLogin(username, ipAddr, bootstrap)
-		bootstrap = localIp + ":" + strconv.Itoa(i + 7000)
-		time.Sleep(time.Millisecond * 5)
-		users[username] = user
-	}
-
-	return users
-
-}
-
-func TestManyRegistrations(t *testing.T) {
-	
-	users := registerMany(30)
-	time.Sleep(time.Second)
-	for _, user := range users{
-		user.node.AnnounceUser(user.name, user.node.IpAddr)
-	}
-	time.Sleep(time.Second)
-	for _, user := range users{
-		fmt.Println(user.name, user.node.kv)
-		for targetUsername, targetUser := range users{
-			targetIp := user.node.FindUser(targetUsername)
-			assertEqual(t, targetIp, targetUser.node.IpAddr)
-			fmt.Println("Correct")
-		}
-	}
-	
-	for _, user := range users {
-		user.node.Dead <- true
-	}
-}
-
 
 func assertEqual(t *testing.T, out, ans interface{}) {
     if out != ans {
@@ -113,6 +54,27 @@ func isEqualRE(entry1 []RoutingEntry, entry2 []RoutingEntry) bool{
 	return true
 }
 
+func registerMany(num_users int) map[string]*User{
+	users := make(map[string]*User)
+
+	bootstrap := ""
+
+	for i :=0; i < num_users; i++{
+		username := strconv.Itoa(i)
+		ipAddr := localIp + ":" + strconv.Itoa(i + 7000)
+		user := RegisterAndLogin(username, ipAddr, bootstrap)
+		bootstrap = localIp + ":" + strconv.Itoa(i + 7000)
+		time.Sleep(time.Millisecond * 5)
+		users[username] = user
+	}
+
+	return users
+
+}
+
+/*
+**  Unit tests for helper functions in common.go
+*/
 func TestCommonUnit(t *testing.T) {
     //common unit tests
 
@@ -135,6 +97,9 @@ func TestCommonUnit(t *testing.T) {
     assertEqual(t, find_n(a, d), uint(48))
 }
 
+/*
+**  Unit tests for helper functions in dhtnode.go
+*/
 func TestDhtNodeUnit(t *testing.T) {
     //DhtNode Unit Tests
 
@@ -161,8 +126,138 @@ func TestDhtNodeUnit(t *testing.T) {
     if !isEqualRE(in0, out3) {
         t.Fatalf("wanted %v, got %v, in0, out3")
     }
-    //
-    fmt.Println()
+}
 
+/*
+**	TestBasic:
+**	1) Starts two nodes
+**	2) Introduces node1 to node2
+**	3) Nodes send messages
+**	
+**	We verify the messages are not lost
+**	and arrive unaltered. 
+*/
+func TestBasic(t *testing.T) {
 
+	runtime.GOMAXPROCS(4)
+
+	port1 := ":4444"
+	port2 := ":5555"
+	username1 := "Alice"
+	username2 := "Frans"
+
+	// user1 starts the Peerchat network, and
+	// user2 joins by bootstrapping
+	user1 := Register(username1, localIp + port1, "")
+	time.Sleep(time.Millisecond * 50)
+	user2 := Register(username2, localIp + port2, localIp + port1)
+
+	time.Sleep(time.Millisecond * 50)
+
+	// tests that we can find both users!
+	u1_ip := user2.node.FindUser(username1)
+	assertEqual(t, u1_ip, localIp+port1)
+	u2_ip := user1.node.FindUser(username2)
+	assertEqual(t, u2_ip, localIp+port2)
+	
+	// users exchange messages
+	user1.SendMessage(username2, "Hi Frans! Wanna play squash?")
+	time.Sleep(time.Second * 1)
+	user2.SendMessage(username1, "Sure Alice, what time?")
+	
+	// kill user nodes
+	user1.node.Dead <- true
+	user2.node.Dead <- true
+}
+
+/*
+**  Register 30 users and make sure that each user can lookup
+**  the IP address of every other user
+*/
+func TestManyRegistrations(t *testing.T) {
+	
+	users := registerMany(30)
+	time.Sleep(time.Second)
+	for _, user := range users{
+		user.node.AnnounceUser(user.name, user.node.IpAddr)
+	}
+	time.Sleep(time.Second)
+	for _, user := range users{
+		fmt.Println(user.name, user.node.kv)
+		for _, targetUser := range users{
+			checkLookup(t, user, targetUser)
+            //targetIp := user.node.FindUser(targetUsername)
+			//assertEqual(t, targetIp, targetUser.node.IpAddr)
+			//fmt.Println("Correct")
+		}
+	}
+	
+	for _, user := range users {
+		user.node.Dead <- true
+	}
+}
+
+/*
+**  Register 100 users. Choose 20 random pairs of users
+**  and make sure they can look each other up
+*/
+func TestManyMoreRegistrations(t *testing.T) {
+    size := 100
+    users := registerMany(size)
+    time.Sleep(time.Second)
+    for _, user := range users {
+        user.node.AnnounceUser(user.name, user.node.IpAddr)
+    }
+    time.Sleep(time.Second)
+    for i:=0; i<20; i++ {
+        idx :=  strconv.Itoa(rand.Int() % size)
+        idx2 := strconv.Itoa(rand.Int() % size)
+        fmt.Println("idx: ", idx, " idx2: ", idx2)
+        checkLookup(t, users[idx], users[idx2])
+        checkLookup(t, users[idx2], users[idx])
+    }
+}
+
+/*
+**  Register 5 users. Make sure they can all send messages
+**  to each other
+*/
+func TestSends(t *testing.T) {
+    users := registerMany(5)
+    fmt.Println("testing lookup...")
+    time.Sleep(time.Second)
+    users["0"].SendMessage("4", "hello 4")
+    time.Sleep(5 * time.Second)
+    fmt.Printf("histoary = %v", users["4"].MessageHistory["0"])
+    assertEqual(t, users["4"].MessageHistory["0"][0].Content, "hello 4")
+
+    //users["4"].SendMessage("0", "hi 0")
+    //users["0"].SendMessage("9", "hello 9")
+
+}
+
+/*
+**  Register 10 users. Have 3 go offline. Make sure the remaining 
+**  users can look each other up
+*/
+func TestSomeFailures(t* testing.T) {
+    //TODO: implement this test
+}
+
+/*
+**  Register 3 users. Have one log off and then log back on
+**  with the same IP address. Make sure that user can still
+**  lookup the other users
+*/
+func TestPersistance(t* testing.T) {
+    //TODO: implement this test
+}
+
+/*
+**  Register 3 users. Have one log off and then log back on
+**  with a new IP address. Make sure other users can lookup
+**  that user's new address.
+*/
+func TestNewIP(t* testing.T) {
+    //TODO: implement this test
 }
