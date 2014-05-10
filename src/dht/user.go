@@ -32,6 +32,16 @@ func UsernameToPath(username string) string {
 	return PEERCHAT_USERDATA_DIR + "/" + username + ".gob"
 }
 
+func (u *User) GetMessagesFrom(username string) []*SendMessageArgs {
+	/*
+		Returns the list of SendMessageArgs
+	*/
+	if _, ok := u.MessageHistory[username]; ok {
+		return u.MessageHistory[username]
+	}
+	return make([]*SendMessageArgs, 0)
+}
+
 func (u *User) Serialize() {
 	/*
 		Serializes this User struct.

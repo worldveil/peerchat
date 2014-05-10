@@ -160,8 +160,8 @@ func TestBasic(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	
 	// ensure the messages got there
-	assertEqual(t, user2.MessageHistory[username1][0].Content, msg1)
-	assertEqual(t, user1.MessageHistory[username2][0].Content, msg2)
+	assertEqual(t, user2.GetMessagesFrom(username1)[0].Content, msg1)
+	assertEqual(t, user1.GetMessagesFrom(username2)[0].Content, msg2)
 	
 	assertEqual(t, len(user2.MessageHistory[username1]), 1)
 	assertEqual(t, len(user1.MessageHistory[username2]), 1)
@@ -225,13 +225,10 @@ func TestManyMoreRegistrations(t *testing.T) {
 */
 func TestSends(t *testing.T) {
 	users := registerMany(5)
-	fmt.Println("testing lookup...")
-	time.Sleep(time.Second)
+	time.Sleep(1 * time.Second)
 	users["0"].SendMessage("4", "hello 4")
-	time.Sleep(5 * time.Second)
-	// fmt.Printf("histoary = %v", users["4"].MessageHistory["0"])
-	// assertEqual(t, users["4"].MessageHistory["0"][0].Content, "hello 4")
-
+	time.Sleep(1 * time.Second)
+	assertEqual(t, users["4"].MessageHistory["0"][0].Content, "hello 4")
 	//users["4"].SendMessage("0", "hi 0")
 	//users["0"].SendMessage("9", "hello 9")
 
