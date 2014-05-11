@@ -135,6 +135,10 @@ func RegisterAndLogin(username string, userIpAddr string, bootstrapIpAddr string
 	return user
 }
 
+func (u *User) Logoff() {
+	//TODO: implement this
+}
+
 func (u *User) setupUser(){
 	rpcs := u.node.SetupNode()
 	rpcs.Register(u)
