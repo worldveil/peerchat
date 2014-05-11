@@ -347,3 +347,8 @@ func (user *User) CheckStatus(ipAddr string) string {
 	return status
 }
 
+func (user *User) IsOnline(username string) bool{
+	ip := user.node.FindUser(username)
+	return ip != "" && user.CheckStatus(ip) == Online
+}
+
