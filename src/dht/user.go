@@ -141,7 +141,7 @@ func (u *User) setupUser(){
 	rpcs.Register(u)
 
 	// set up a connection listener
-	l, e := net.Listen("tcp", u.node.IpAddr)
+	l, e := net.Listen("unix", u.node.IpAddr)
 	if e != nil {
 		log.Fatal("listen error: ", e)
 	}
@@ -173,7 +173,7 @@ func (u *User) setupUser(){
 func (u *User) kill() {
 	Print("KILL", "User %v killed", u.name)
 	u.dead = true
-	u.l.Close()
+//	u.l.Close()
 }
 
 func MakeUser(username string, ipAddr string) *User{

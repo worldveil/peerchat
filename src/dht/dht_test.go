@@ -14,6 +14,16 @@ import "os"
 
 const localIp = "127.0.0.1"
 
+func port(tag string, host int) string {
+	s := "/var/tmp/824-"
+	s += strconv.Itoa(os.Getuid()) + "/"
+	os.Mkdir(s, 0777)
+	s += "dht-"
+	s += strconv.Itoa(os.Getpid()) + "-"
+	s += tag + "-"
+	s += strconv.Itoa(host)
+	return s
+}
 
 func assertEqual(t *testing.T, out, ans interface{}) {
 	if out != ans {
@@ -38,16 +48,17 @@ func isEqualRE(entry1 []RoutingEntry, entry2 []RoutingEntry) bool{
 	return true
 }
 
-func registerMany(num_users int) map[string]*User{
+func registerMany(num_users int, tag string) map[string]*User{
 	users := make(map[string]*User)
 
 	bootstrap := ""
 
 	for i :=0; i < num_users; i++{
 		username := strconv.Itoa(i)
-		ipAddr := localIp + ":" + strconv.Itoa(i + 8000)
+		//ipAddr := localIp + ":" + strconv.Itoa(i + 8000)
+		ipAddr := port(tag, i)
 		user := RegisterAndLogin(username, ipAddr, bootstrap)
-		bootstrap = localIp + ":" + strconv.Itoa(i + 8000)
+		bootstrap = port(tag, i) 
 		time.Sleep(time.Millisecond * 5)
 		users[username] = user
 	}
@@ -192,7 +203,7 @@ func TestBasic(t *testing.T) {
 */
 func TestManyRegistrations(t *testing.T) {
 	fmt.Println("Running TestManyRegistrations")	
-	users := registerMany(5)
+	users := registerMany(5, "ManyReg")
 	defer killAll(users)
 	for _, user := range users{
 		for _, targetUser := range users{
@@ -209,8 +220,8 @@ func TestManyRegistrations(t *testing.T) {
 func TestManyMoreRegistrations(t *testing.T) {
 	fmt.Println("Running TestManyMoreRegistrations")
 	size := 10
-	users := registerMany(size)
-	defer killAll(users)
+	users := registerMany(size,"ManyMoreReg")
+//	defer killAll(users)
 	for i:=0; i<20; i++ {
 		idx :=  strconv.Itoa(rand.Int() % size)
 		idx2 := strconv.Itoa(rand.Int() % size)
@@ -226,7 +237,7 @@ func TestManyMoreRegistrations(t *testing.T) {
 **  to each other
 */
 func TestSends(t *testing.T) {
-	users := registerMany(5)
+	users := registerMany(5,"Sends")
 	time.Sleep(1 * time.Second)
 	users["0"].SendMessage("4", "hello 4")
 	time.Sleep(1 * time.Second)
