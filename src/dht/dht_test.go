@@ -7,6 +7,8 @@ import "time"
 import "math"
 import "strconv"
 import "math/rand"
+import "os"
+
 // Signal failures with the following:
 // t.Fatalf("error message here")
 
@@ -116,6 +118,8 @@ func TestDhtNodeUnit(t *testing.T) {
 **	1) Starts two nodes
 **	2) Introduces node1 to node2
 **	3) Nodes send messages
+**  4) Verify messages were recieved and 
+**     saved intact with no duplication.
 **	
 **	We verify the messages are not lost
 **	and arrive unaltered. 
@@ -128,6 +132,10 @@ func TestBasic(t *testing.T) {
 	port2 := ":5555"
 	username1 := "Alice"
 	username2 := "Frans"
+	
+	// remove any serialized users
+	os.Remove(UsernameToPath(username1))
+	os.Remove(UsernameToPath(username2))
 
 	// user1 starts the Peerchat network, and
 	// user2 joins by bootstrapping
@@ -144,9 +152,21 @@ func TestBasic(t *testing.T) {
 	assertEqual(t, u2_ip, localIp+port2)
 	
 	// users exchange messages
-	user1.SendMessage(username2, "Hi Frans! Wanna play squash?")
+	msg1 := "Hi Frans! Wanna play squash?"
+	msg2 := "Sure Alice, what time?"
+	
+	user1.SendMessage(username2, msg1)
 	time.Sleep(time.Second * 1)
-	user2.SendMessage(username1, "Sure Alice, what time?")
+	user2.SendMessage(username1, msg2)
+	
+	time.Sleep(1 * time.Second)
+	
+	// ensure the messages got there
+	assertEqual(t, user2.MessageHistory[username1][0].Content, msg1)
+	assertEqual(t, user1.MessageHistory[username2][0].Content, msg2)
+	
+	assertEqual(t, len(user2.MessageHistory[username1]), 1)
+	assertEqual(t, len(user1.MessageHistory[username2]), 1)
 	
 	// kill user nodes
 	user1.node.Dead <- true
@@ -158,6 +178,7 @@ func TestBasic(t *testing.T) {
 **  the IP address of every other user
 */
 func TestManyRegistrations(t *testing.T) {
+	
 	users := registerMany(30)
 	time.Sleep(time.Second)
 	for _, user := range users{
@@ -218,7 +239,8 @@ func TestSends(t *testing.T) {
 
 /*
 **  RegisterAndLogin 10 users. Have 3 go offline. Make sure the remaining 
-**  users can look each other up
+**  users can look each other up. Make sure the remaining users can
+**  tell that logged-off users are not online
 */
 func TestSomeFailures(t* testing.T) {
 	//TODO: implement this test
@@ -241,3 +263,18 @@ func TestPersistance(t* testing.T) {
 func TestNewIP(t* testing.T) {
 	//TODO: implement this test
 }
+
+/*
+**  Register 10 users. Have them chat with each other for a bit.
+**  Register 10 more users. Make sure 3 random pairs can look each
+**  other up. Have 5 users from each group log off. Make sure 3 random
+**  pairs can look each other up. Register 10 more users. Make sure 5
+**  random pairs can look each other up. Have 5 more users log off and
+**  5 others log back on with new IP addresses. Make sure 10 random 
+**  pairs can look each other up
+*/
+func TestRealLife(t* testing.T) {
+    //TODO: implement this test
+}
+
+
