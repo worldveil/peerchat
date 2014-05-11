@@ -20,6 +20,7 @@ type User struct {
 }
 
 const PEERCHAT_USERDATA_DIR = "/tmp"
+const PERSIST_EVERY = 30
 
 func UsernameToPath(username string) string {
 	/*
@@ -105,6 +106,7 @@ func Login(username string, userIpAddr string) *User {
 		time.Sleep(10*time.Millisecond)
 		user.node.AnnounceUser(username, userIpAddr)
 		go user.startSender()
+		go user.startPersistor()
 	}
 	return user
 }
@@ -115,7 +117,7 @@ func RegisterAndLogin(username string, userIpAddr string, bootstrapIpAddr string
 		a known IP address as a boostrap. 
 	*/
 	Print(UserTag, "Bootstraping register with %s using username=%s, ip=%s, and ...", bootstrapIpAddr, username, userIpAddr) 
-	user := makeUser(username, userIpAddr)
+	user := MakeUser(username, userIpAddr)
 	user.setupUser()
 	
 	// check status of user we are about to bootstrap from
@@ -128,6 +130,7 @@ func RegisterAndLogin(username string, userIpAddr string, bootstrapIpAddr string
 	time.Sleep(10*time.Millisecond)
 	user.node.AnnounceUser(username, userIpAddr)
 	go user.startSender()
+	go user.startPersistor()
 	return user
 }
 
@@ -160,7 +163,7 @@ func (u *User) setupUser(){
 	}()
 }
 
-func makeUser(username string, ipAddr string) *User{
+func MakeUser(username string, ipAddr string) *User{
 	Print(UserTag, "Creating a new User...")
 	emptyPendingMessages := make(map[string][]*SendMessageArgs)
 	history := make(map[string][]*SendMessageArgs)
@@ -241,6 +244,9 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 	}
 	user.MessageHistory[args.FromUsername] = append(user.MessageHistory[args.FromUsername], args)
 	
+	// persist to disk
+	user.Serialize()
+	
 	return nil
 }
 
@@ -257,6 +263,17 @@ func (user *User) SendMessage(username string, content string) {
 	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now(), ToUsername: username, FromUsername: user.name}
 	user.pendingMessages[username] = append(user.pendingMessages[username], pendingMessage)
 	user.mu.Unlock()
+}
+
+func (user *User) startPersistor() {
+	/*
+		Saves the user's routing table and message
+		history to disk every PERSIST_EVERY seconds.
+	*/
+	for {
+		user.Serialize()
+		time.Sleep(PERSIST_EVERY * time.Second)
+	}
 }
 
 func (user *User) startSender() {
