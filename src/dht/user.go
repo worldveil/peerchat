@@ -260,7 +260,7 @@ func (user *User) SendMessage(username string, content string) {
 	if _, ok := user.pendingMessages[username]; !ok {
 	    user.pendingMessages[username] = make([]*SendMessageArgs, 0)
 	} 
-	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now(), ToUsername: username, FromUsername: user.name}
+	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now(), ToUsername: username, FromUsername: user.name, MessageIdentifier: nrand()}
 	user.pendingMessages[username] = append(user.pendingMessages[username], pendingMessage)
 	user.mu.Unlock()
 }
