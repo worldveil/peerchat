@@ -132,6 +132,7 @@ func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error {
 	Print(HandlerTag, "Node %v FindNodeHandler called by %v, TargetId: %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId))
 	reply.QueriedNodeId = node.NodeId
+	reply.QueriedIpAddr = node.IpAddr
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	reply.TryNodes = node.getClosest(K, args.TargetId)
 	return nil
@@ -142,6 +143,7 @@ func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error
 func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error {
 	Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. My kv is %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId), node.kv)
 	reply.QueriedNodeId = node.NodeId
+	reply.QueriedIpAddr = node.IpAddr
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	ipAddr, exists := node.kv[args.TargetId]
 	if exists {
@@ -192,6 +194,10 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 			continue
 		}
 		Print(DHTHelperTag, "Node %v received Find%v response from %v. Response is %v, %v", Short(node.NodeId), targetType, Short(reply.QueriedNodeId), reply.TryNodes, reply.TargetIpAddr)
+		//update our routing table with queriedNodeId
+		node.updateRoutingTable(RoutingEntry{NodeId: reply.QueriedNodeId, IpAddr: reply.QueriedIpAddr})
+
+		//if we are looking for a user's ip address break early if found
 		if targetType == "User" && reply.TargetIpAddr != "" {
 			//send user to closest node that did not return value
 			for _, entryDist := range closestNodes{
@@ -289,7 +295,7 @@ func (node *DhtNode) Ping(routingEntry RoutingEntry) bool{
 	var reply PingReply
 	ok := call(routingEntry.IpAddr, "DhtNode.PingHandler", args, &reply)
 	if ok && (reply.QueriedNodeId == routingEntry.NodeId){
-		node.updateRoutingTable(routingEntry)
+		node.updateRoutingTable(routingEntry) // this is needed for bootstrap
 		return true
 	}
 	return false

@@ -5,6 +5,8 @@ import "crypto/sha1"
 import "net/rpc"
 import "fmt"
 import "strconv"
+import "crypto/rand"
+import "math/big"
 
 // Configurable constants
 const (
@@ -33,11 +35,12 @@ func Short(id ID) string{
 	return my_string[:4]
 }
 
-// const (
-// 	OK = "OK"
-// 	WrongNodeID = "WrongNodeID"
-// )
-// type Err string
+func nrand() int64 {
+	max := big.NewInt(int64(1) << 62)
+	bigx, _ := rand.Int(rand.Reader, max)
+	x := bigx.Int64()
+	return x
+}
 
 type RoutingEntry struct {
 	IpAddr string
@@ -56,6 +59,7 @@ type SendMessageArgs struct {
 	Timestamp time.Time
 	ToUsername string
 	FromUsername string
+	MessageIdentifier int64
 }
 
 type SendMessageReply struct {
@@ -81,6 +85,7 @@ type FindIdArgs struct {
 
 type FindIdReply struct {
 	QueriedNodeId ID
+	QueriedIpAddr string
 	TryNodes []RoutingEntryDist // if list is of length 1, then we found it
 	TargetIpAddr string
 }

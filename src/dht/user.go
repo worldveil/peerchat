@@ -260,7 +260,7 @@ func (user *User) SendMessage(username string, content string) {
 	if _, ok := user.pendingMessages[username]; !ok {
 	    user.pendingMessages[username] = make([]*SendMessageArgs, 0)
 	} 
-	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now(), ToUsername: username, FromUsername: user.name}
+	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now(), ToUsername: username, FromUsername: user.name, MessageIdentifier: nrand()}
 	user.pendingMessages[username] = append(user.pendingMessages[username], pendingMessage)
 	user.mu.Unlock()
 }
@@ -345,5 +345,10 @@ func (user *User) CheckStatus(ipAddr string) string {
 	}
 	Print(UserTag, "Checking status: %s is %s", ipAddr, status) 
 	return status
+}
+
+func (user *User) IsOnline(username string) bool{
+	ip := user.node.FindUser(username)
+	return ip != "" && user.CheckStatus(ip) == Online
 }
 

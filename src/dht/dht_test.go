@@ -179,7 +179,7 @@ func TestBasic(t *testing.T) {
 */
 func TestManyRegistrations(t *testing.T) {
 	
-	users := registerMany(30)
+	users := registerMany(100)
 	time.Sleep(time.Second)
 	for _, user := range users{
 		user.node.AnnounceUser(user.name, user.node.IpAddr)
@@ -215,6 +215,9 @@ func TestManyMoreRegistrations(t *testing.T) {
 		checkLookup(t, users[idx], users[idx2])
 		checkLookup(t, users[idx2], users[idx])
 	}
+	for _, user := range users {
+		user.node.Dead <- true
+	}
 }
 
 /*
@@ -229,6 +232,9 @@ func TestSends(t *testing.T) {
 	assertEqual(t, users["4"].MessageHistory["0"][0].Content, "hello 4")
 	//users["4"].SendMessage("0", "hi 0")
 	//users["0"].SendMessage("9", "hello 9")
+	for _, user := range users {
+		user.node.Dead <- true
+	}
 
 }
 
