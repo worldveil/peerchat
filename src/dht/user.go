@@ -17,6 +17,8 @@ type User struct {
 	name string
 	MessageHistory map[string][]*SendMessageArgs // username => messages we've gotten so far
 	pendingMessages map[string][]*SendMessageArgs // username => slice of pending messages to apply
+	dead bool
+	l net.Listener
 }
 
 const PEERCHAT_USERDATA_DIR = "/tmp"
@@ -143,7 +145,8 @@ func (u *User) setupUser(){
 	if e != nil {
 		log.Fatal("listen error: ", e)
 	}
-	
+ 	u.l = l
+
 	// spin off go routine to listen for connections
 	go func() {
 		Print(StartTag, "Connection listener for %s starting...", u.node.IpAddr)
@@ -161,6 +164,12 @@ func (u *User) setupUser(){
 		Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", u.node.IpAddr)
 		fmt.Println("here for no reason")
 	}()
+}
+
+func (u *User) kill() {
+	Print("KILL", "User %v killed", u.name)
+	u.dead = true
+	u.l.Close()
 }
 
 func MakeUser(username string, ipAddr string) *User{
@@ -285,6 +294,7 @@ func (user *User) startSender() {
 	for {
 		select {
 			case <- user.node.Dead:
+			user.node.Dead <- true
 			break
 			
 			default:
