@@ -14,6 +14,7 @@ import "os"
 
 const localIp = "127.0.0.1"
 
+
 func assertEqual(t *testing.T, out, ans interface{}) {
 	if out != ans {
 		t.Fatalf("wanted %v, got %v", ans, out)
@@ -60,6 +61,7 @@ func registerMany(num_users int) map[string]*User{
 */
 func TestCommonUnit(t *testing.T) {
 	//common unit tests
+	runtime.GOMAXPROCS(4)
 
 	//Sha1 Test
 	assertEqual(t, Sha1("abc"), Sha1("abc"))
@@ -124,7 +126,7 @@ func TestDhtNodeUnit(t *testing.T) {
 */
 func TestBasic(t *testing.T) {
 
-	runtime.GOMAXPROCS(4)
+	
 
 	port1 := ":4444"
 	port2 := ":5555"
@@ -177,19 +179,17 @@ func TestBasic(t *testing.T) {
 */
 func TestManyRegistrations(t *testing.T) {
 	
-	users := registerMany(50)
+	users := registerMany(30)
 	time.Sleep(time.Second)
 	for _, user := range users{
 		user.node.AnnounceUser(user.name, user.node.IpAddr)
 	}
 	time.Sleep(time.Second)
 	for _, user := range users{
-		fmt.Println(user.name, user.node.kv)
 		for _, targetUser := range users{
 			checkLookup(t, user, targetUser)
 			//targetIp := user.node.FindUser(targetUsername)
 			//assertEqual(t, targetIp, targetUser.node.IpAddr)
-			//fmt.Println("Correct")
 		}
 	}
 	

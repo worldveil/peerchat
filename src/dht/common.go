@@ -9,7 +9,7 @@ import "strconv"
 // Configurable constants
 const (
 	IDLen = 64
-	K = 8
+	K = 15
 	Alpha = 3
 )
 
@@ -18,7 +18,7 @@ const (
 	Offline = "Offline"
 )
 
-const Debug=1
+const Debug=0
 
 func Print(tag string, format string, a ...interface{}) (n int, err error) {
 	tag = "["+tag+"]		"
