@@ -6,7 +6,6 @@ import "math"
 import "github.com/pmylund/sortutil"
 import "strings"
 import "net/rpc"
-import "sync"
 import "encoding/gob"
 
 const ApiTag = "API"
@@ -22,8 +21,6 @@ type DhtNode struct {
 	kv map[ID]string // map from username to IP
 	port string
 	Dead chan bool
-	mu sync.Mutex
-	handlerLock sync.Mutex
 }
 
 //this gets called when another node is contacting this node through any API method!
@@ -37,6 +34,7 @@ func (node *DhtNode) updateRoutingTable(entry RoutingEntry) {
 		if r_entry == entry{
 			bucket = moveToEnd(bucket, idx)
 			node.RoutingTable[n] = bucket
+			Print(DHTHelperTag, "Node %v done updateRoutingTable Routing table is: %v", Short(node.NodeId), node.RoutingTable)
 			return
 		}
 	} // new entry is not in bucket
@@ -106,8 +104,6 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 // StoreUser RPC handler
 //this just stores the user in your kv
 func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply) error {
-	node.handlerLock.Lock()
-	defer node.handlerLock.Unlock()
 	Print(HandlerTag, "Node %v StoreUserHandler called by %v. kv[%v]=%v", Short(node.NodeId), Short(args.QueryingNodeId), args.AnnouncedUsername, args.QueryingIpAddr)
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	node.kv[Sha1(args.AnnouncedUsername)] = args.QueryingIpAddr
@@ -136,8 +132,6 @@ func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 // all this does is call getClosest on K nodes
 // returns k sorted slice of RoutingEntryDist from my routing table
 func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error {
-	node.handlerLock.Lock()
-	defer node.handlerLock.Unlock()
 	Print(HandlerTag, "Node %v FindNodeHandler called by %v, TargetId: %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId))
 	reply.QueriedNodeId = node.NodeId
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
@@ -148,8 +142,8 @@ func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error
 // helper function called by both FindUser and AnnounceUser
 // returns a k-length slice of RoutingEntriesDist sorted in increasing order of dist from 
 func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDist, string) {
-	node.mu.Lock()
-	defer node.mu.Unlock()
+	// node.mu.Lock()
+	// defer node.mu.Unlock()
 
 	Print(DHTHelperTag, "Node %v calling idLookup, targetId: %v, targetType: %v", Short(node.NodeId), Short(targetId), targetType)
 	// get the closest nodes to the desired node ID
@@ -239,7 +233,7 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 	for !ok {
 		ok = call(entry.IpAddr, "DhtNode.Find" + targetType + "Handler", args, &reply)
 		if !ok {
-			log.Printf("Failed! Will try again.")
+			log.Fatal("Failed! Will try again.")
 		}
 	}
 	// add reference to reply onto the channel
@@ -249,8 +243,6 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 // FindUser RPC handlers
 //checks if user is in, if not, return false
 func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error {
-	node.handlerLock.Lock()
-	defer node.handlerLock.Unlock()
 	Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. My kv is %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId), node.kv)
 	reply.QueriedNodeId = node.NodeId
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
@@ -283,7 +275,6 @@ func (node *DhtNode) FindUser(username string) string {
 // Ping RPC handlers
 func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
 	Print(HandlerTag, "Node %v PingHandler called by %v", Short(node.NodeId), Short(args.QueryingNodeId))
-	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
 	reply.QueriedNodeId = node.NodeId
 	return nil
 }
