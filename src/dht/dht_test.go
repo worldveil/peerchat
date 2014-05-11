@@ -179,7 +179,7 @@ func TestBasic(t *testing.T) {
 */
 func TestManyRegistrations(t *testing.T) {
 	
-	users := registerMany(30)
+	users := registerMany(100)
 	time.Sleep(time.Second)
 	for _, user := range users{
 		user.node.AnnounceUser(user.name, user.node.IpAddr)
