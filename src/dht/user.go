@@ -352,3 +352,23 @@ func (user *User) IsOnline(username string) bool{
 	return ip != "" && user.CheckStatus(ip) == Online
 }
 
+func (user *User) AreNewMessagesFrom(other username, last int) bool {
+	
+	areNew := false
+	newMessages := make([]*SendMessageArgs, 0)
+	
+	// get messages in this conversation
+	messages := user.MessageHistory[other]
+	sortutil.AscByField(messages, "Timestamp")
+	for _, message := range user.MessageHistory[other] {
+		
+	}
+}
+
+func (user *User) GetNewMessagesFrom(other username, n int) []*SendMessageArgs {
+	/*
+		
+	*/
+	
+}
+

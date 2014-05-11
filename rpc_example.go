@@ -88,19 +88,22 @@ func startChat() {
     
     // never ending loop
     peer := ""
+    newPeer := ""
     for {
     	
     	// State 1) get a user to chat with
     	if peer == "" {
     		fmt.Printf("User to chat with: ")
-    		peer = input(reader)
+    		newPeer = input(reader)
     		
-    		// TODO: verify this user is online
-    		// ...
+    		// verify this user is online
+    		if ! user.IsOnline(newPeer) {
+    			continue
+    		}
     		
-    		// TODO: if they are, set peer to new peer
-    		// peer = newPeer
-    		// fmt.Printf("%s> \n", peer)
+    		// if they are, set peer to new peer
+    		peer = newPeer
+    		fmt.Printf("%s> ", peer)
     	
     	// State 2) continue chatting
     	} else {
@@ -113,16 +116,19 @@ func startChat() {
 	    	
 	    	} else if text[0] == 92 {
 	    		// switching users to chat with
-	    		newPeer := text[1:]
+	    		newPeer = text[1:]
 	    		
-	    		// TODO: verify this user `newPeer` is online
+	    		// verify this user `newPeer` is online
 	    		fmt.Printf("Attempting to connect to %s...\n", newPeer)
-	    		// ...
+	    		if ! user.IsOnline(newPeer) {
+	    			fmt.Printf("Attempting to connect to %s...\n", newPeer)
+	    			continue
+				}
 	    		
-	    		// TODO: if they are, set peer to new peer
-	    		// peer = newPeer
-	    		// fmt.Printf("Swtiching to talk to: %s\n", peer)
-	    		// fmt.Printf("%s> \n", peer)
+	    		// if they are, set peer to new peer
+	    		peer = newPeer
+	    		fmt.Printf("Swtiching to talk to: %s\n", peer)
+	    		fmt.Printf("%s> ", peer)
 	    		
 	    	} else if text == "exit" {
 	    		// exit peerchat
