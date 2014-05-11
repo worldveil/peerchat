@@ -188,8 +188,6 @@ func TestManyRegistrations(t *testing.T) {
 	for _, user := range users{
 		for _, targetUser := range users{
 			checkLookup(t, user, targetUser)
-			//targetIp := user.node.FindUser(targetUsername)
-			//assertEqual(t, targetIp, targetUser.node.IpAddr)
 		}
 	}
 	
