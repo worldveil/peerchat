@@ -4,7 +4,7 @@ package dht
 import "log"
 import "math"
 import "github.com/pmylund/sortutil"
-import "strings"
+//import "strings"
 import "net/rpc"
 import "encoding/gob"
 
@@ -333,7 +333,7 @@ func MakeNode(username string, myIpAddr string) *DhtNode{
 	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr)}
 	node.kv = make(map[ID]string)
 	node.MakeEmptyRoutingTable()
-	node.port = strings.Split(myIpAddr, ":")[1]
+	//node.port = strings.Split(myIpAddr, ":")[1]
 	node.Dead = make(chan bool, 10)
 	
 	Print(StartTag, "DHT Node created for username=%s with ip=%s, moving to gob setup...", username, myIpAddr)	

@@ -45,9 +45,9 @@ func registerMany(num_users int) map[string]*User{
 
 	for i :=0; i < num_users; i++{
 		username := strconv.Itoa(i)
-		ipAddr := localIp + ":" + strconv.Itoa(i + 7000)
+		ipAddr := localIp + ":" + strconv.Itoa(i + 8000)
 		user := RegisterAndLogin(username, ipAddr, bootstrap)
-		bootstrap = localIp + ":" + strconv.Itoa(i + 7000)
+		bootstrap = localIp + ":" + strconv.Itoa(i + 8000)
 		time.Sleep(time.Millisecond * 5)
 		users[username] = user
 	}
