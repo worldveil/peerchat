@@ -12,12 +12,14 @@ const UserTag = "USER"
 const SendingTag = "SENDING"
 
 type User struct {
+	l net.Listener
 	mu sync.Mutex
 	node *DhtNode
 	name string
 	MessageHistory map[string][]*SendMessageArgs // username => messages we've gotten so far
 	pendingMessages map[string][]*SendMessageArgs // username => slice of pending messages to apply
 	receivedMessageIdentifiers map[int64]bool // messageIdentifier (int64) => true if seen messageIdentifier before
+	dead bool
 }
 
 const PEERCHAT_USERDATA_DIR = "/tmp"
@@ -136,7 +138,8 @@ func RegisterAndLogin(username string, userIpAddr string, bootstrapIpAddr string
 }
 
 func (u *User) Logoff() {
-	//TODO: implement this
+	u.dead = true
+	u.l.Close()
 }
 
 func (u *User) setupUser(){
@@ -148,23 +151,28 @@ func (u *User) setupUser(){
 	if e != nil {
 		log.Fatal("listen error: ", e)
 	}
+	u.l = l
 	
 	// spin off go routine to listen for connections
 	go func() {
 		Print(StartTag, "Connection listener for %s starting...", u.node.IpAddr)
-		for {
+		for u.dead == false{
 			conn, err := l.Accept()
-			if err != nil {
-				log.Fatal("listen error: ", err);
+			if err == nil && ! u.dead{
+				// spin off goroutine to handle
+				// RPC requests from other nodes
+				go rpcs.ServeConn(conn)
+			} else if err == nil {
+				conn.Close()
 			}
-			
-			// spin off goroutine to handle
-			// RPC requests from other nodes
-			go rpcs.ServeConn(conn)
+			if err != nil && ! u.dead{
+				fmt.Println(err)
+				u.Logoff()
+			}			
 		}
 		
 		Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", u.node.IpAddr)
-		fmt.Println("here for no reason")
+		fmt.Println("Server shutting down")
 	}()
 }
 
@@ -188,6 +196,7 @@ func loadUser(username, myIpAddr string) *User {
 	
 	// first deserialize the old User struct from disk
 	success, user := Deserialize(username)
+	fmt.Println("got here")
 	
 	// there was a userfile to load
 	if success {
@@ -304,58 +313,51 @@ func (user *User) startSender() {
 		are up to send them messages
 	*/
 	Print(SendingTag, "Sender process for %s starting...", user.name)
-	for {
-		select {
-			case <- user.node.Dead:
-			break
-			
-			default:
-			for username, _ := range user.pendingMessages {
-				for len(user.pendingMessages[username]) > 0 {
+	for user.dead == false{
+		for username, _ := range user.pendingMessages {
+			for len(user.pendingMessages[username]) > 0 {
+				
+				ip := user.node.FindUser(username)
+				status := user.CheckStatus(ip)
+				if status == Online {
 					
-					ip := user.node.FindUser(username)
-					status := user.CheckStatus(ip)
-					if status == Online {
-						
-						// pop first message args off of slice
+					// pop first message args off of slice
+					user.mu.Lock()
+					var args SendMessageArgs
+					if len(user.pendingMessages[username]) == 1 { 
+						args, user.pendingMessages[username] = *user.pendingMessages[username][0], make([]*SendMessageArgs, 0)
+					} else if len(user.pendingMessages[username]) > 1 {
+						// "Pop(0)" slice operation taken from:
+						// https://code.google.com/p/go-wiki/wiki/SliceTricks
+						args, user.pendingMessages[username] = *user.pendingMessages[username][0], user.pendingMessages[username][1:]
+					}
+					user.mu.Unlock()
+					
+					// create reply and send to user
+					var reply SendMessageReply
+					Print(SendingTag, "SenderLoop: Sending \"%s\" to %s...", args.Content, args.ToUsername)
+					ok := call(ip, "User.SendMessageHandler", args, &reply)
+					
+					// if our message sending failed, put back on queue
+					if ! ok {
+						// put message back on front of queue and continue
+						// "Insert" slice operation taken from:
+						// https://code.google.com/p/go-wiki/wiki/SliceTricks
 						user.mu.Lock()
-						var args SendMessageArgs
-						if len(user.pendingMessages[username]) == 1 { 
-							args, user.pendingMessages[username] = *user.pendingMessages[username][0], make([]*SendMessageArgs, 0)
-						} else if len(user.pendingMessages[username]) > 1 {
-							// "Pop(0)" slice operation taken from:
-							// https://code.google.com/p/go-wiki/wiki/SliceTricks
-							args, user.pendingMessages[username] = *user.pendingMessages[username][0], user.pendingMessages[username][1:]
+						user.pendingMessages[username] = append(
+							user.pendingMessages[username][:0], 
+							append([]*SendMessageArgs{&args}, user.pendingMessages[username][0:]...)...)
+						//forward to K nearest neighbors
+						kClosestEntryDists := user.node.FindNearestNodes(Sha1(username))
+						for _, entryDist := range kClosestEntryDists {
+							var replyOther SendMessageReply
+							call(entryDist.RoutingEntry.IpAddr, "User.SendMessageHandler", args, &replyOther)
 						}
 						user.mu.Unlock()
-						
-						// create reply and send to user
-						var reply SendMessageReply
-						Print(SendingTag, "SenderLoop: Sending \"%s\" to %s...", args.Content, args.ToUsername)
-						ok := call(ip, "User.SendMessageHandler", args, &reply)
-						
-						// if our message sending failed, put back on queue
-						if ! ok {
-							// put message back on front of queue and continue
-							// "Insert" slice operation taken from:
-							// https://code.google.com/p/go-wiki/wiki/SliceTricks
-							user.mu.Lock()
-							user.pendingMessages[username] = append(
-								user.pendingMessages[username][:0], 
-								append([]*SendMessageArgs{&args}, user.pendingMessages[username][0:]...)...)
-							//forward to K nearest neighbors
-							kClosestEntryDists := user.node.FindNearestNodes(Sha1(username))
-							for _, entryDist := range kClosestEntryDists {
-								var replyOther SendMessageReply
-								call(entryDist.RoutingEntry.IpAddr, "User.SendMessageHandler", args, &replyOther)
-							}
-							user.mu.Unlock()
-						}
 					}
 				}
 			}
-		}
-		
+		}		
 		Print(SendingTag, "Sender loop for %s running, pending: %v...", user.name, user.pendingMessages)
 		time.Sleep(500 * time.Millisecond)
 	}
