@@ -38,8 +38,8 @@ func isEqualRE(entry1 []RoutingEntry, entry2 []RoutingEntry) bool{
 	return true
 }
 
-func registerMany(num_users int) map[string]*User{
-	users := make(map[string]*User)
+func registerMany(num_users int) map[int]*User{
+	users := make(map[int]*User)
 
 	bootstrap := ""
 
@@ -49,7 +49,7 @@ func registerMany(num_users int) map[string]*User{
 		user := RegisterAndLogin(username, ipAddr, bootstrap)
 		bootstrap = localIp + ":" + strconv.Itoa(i + 8000)
 		time.Sleep(time.Millisecond * 5)
-		users[username] = user
+		users[i] = user
 	}
 
 	time.Sleep(time.Second)
@@ -62,7 +62,7 @@ func registerMany(num_users int) map[string]*User{
 
 }
 
-func killAll(users map[string]*User){
+func killAll(users map[int]*User){
 	for _, user := range users {
 		user.node.Dead <- true
 	}
@@ -211,13 +211,19 @@ func TestManyMoreRegistrations(t *testing.T) {
 	users := registerMany(size)
 	defer killAll(users)
 	for i:=0; i<20; i++ {
-		idx :=  strconv.Itoa(rand.Int() % size)
-		idx2 := strconv.Itoa(rand.Int() % size)
+		idx :=  rand.Int() % size
+		idx2 := rand.Int() % size
 		fmt.Println("idx: ", idx, " idx2: ", idx2)
 		checkLookup(t, users[idx], users[idx2])
 		checkLookup(t, users[idx2], users[idx])
 	}
 	fmt.Println("Passed!")
+}
+func sendAndCheck(t *testing.T, sender *User, receiver *User, idx int) {
+	msg := "message " + strconv.Itoa(rand.Int() % 1000)
+	sender.SendMessage(receiver.name, msg)
+	time.Sleep(time.Second)
+	assertEqual(t, receiver.MessageHistory[sender.name][idx].Content, msg)
 }
 
 /*
@@ -225,15 +231,13 @@ func TestManyMoreRegistrations(t *testing.T) {
 **  to each other
 */
 func TestSends(t *testing.T) {
+	size := 5
 	users := registerMany(5)
-	time.Sleep(1 * time.Second)
-	users["0"].SendMessage("4", "hello 4")
-	time.Sleep(1 * time.Second)
-	assertEqual(t, users["4"].MessageHistory["0"][0].Content, "hello 4")
-	//users["4"].SendMessage("0", "hi 0")
-	//users["0"].SendMessage("9", "hello 9")
-	for _, user := range users {
-		user.node.Dead <- true
+	defer killAll(users)
+	for i:=0; i < size; i++ {
+		for j:=0; j<size; j++ {
+			go sendAndCheck(t, users[i], users[j], 0)
+		}
 	}
 	fmt.Println("Passed!")
 }
@@ -244,7 +248,9 @@ func TestSends(t *testing.T) {
 **  tell that logged-off users are not online
 */
 func TestSomeFailures(t* testing.T) {
-	//TODO: implement this test
+	users := registerMany(10)
+	defer killAll(users)
+	
 }
 
 /*
