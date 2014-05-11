@@ -1,7 +1,5 @@
 package dht
 
-// import "fmt"
-import "log"
 import "math"
 import "github.com/pmylund/sortutil"
 import "strings"
@@ -104,9 +102,9 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 // StoreUser RPC handler
 //this just stores the user in your kv
 func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply) error {
-	Print(HandlerTag, "Node %v StoreUserHandler called by %v. kv[%v]=%v", Short(node.NodeId), Short(args.QueryingNodeId), args.AnnouncedUsername, args.QueryingIpAddr)
+	Print(HandlerTag, "Node %v StoreUserHandler called by %v. kv[%v]=%v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.AnnouncedUserId), args.QueryingIpAddr)
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
-	node.kv[Sha1(args.AnnouncedUsername)] = args.QueryingIpAddr
+	node.kv[args.AnnouncedUserId] = args.AnnouncedIpAddr
 	return nil
 }
 
@@ -121,7 +119,7 @@ func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 	node.idLookup(node.NodeId, "Node")
 	// does lookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node
 	kClosestEntryDists, _ := node.idLookup(Sha1(username), "Node")
-	args := &StoreUserArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: ipAddr, AnnouncedUsername: username}
+	args := &StoreUserArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: ipAddr, AnnouncedUserId: Sha1(username), AnnouncedIpAddr: ipAddr}
 	for _, entryDist := range kClosestEntryDists{
 		var reply PingReply
 		call(entryDist.RoutingEntry.IpAddr, "DhtNode.StoreUserHandler", args, &reply)
@@ -139,12 +137,26 @@ func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error
 	return nil
 }
 
+// FindUser RPC handlers
+//checks if user is in, if not, return false
+func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error {
+	Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. My kv is %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId), node.kv)
+	reply.QueriedNodeId = node.NodeId
+	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
+	ipAddr, exists := node.kv[args.TargetId]
+	if exists {
+		reply.TargetIpAddr = ipAddr
+		Print(HandlerTag, "Node %v FindUserHandler (finished) called by %v, TargetId: %v. Target user is in my map! returning user", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
+	} else{
+		reply.TryNodes = node.getClosest(K, args.TargetId)
+		Print(HandlerTag, "Node %v FindUserHandler (finished) called by %v, TargetId: %v. Target user is NOT in my map! returning closest nodes", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
+	}	
+	return nil
+}
+
 // helper function called by both FindUser and AnnounceUser
 // returns a k-length slice of RoutingEntriesDist sorted in increasing order of dist from 
 func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDist, string) {
-	// node.mu.Lock()
-	// defer node.mu.Unlock()
-
 	Print(DHTHelperTag, "Node %v calling idLookup, targetId: %v, targetType: %v", Short(node.NodeId), Short(targetId), targetType)
 	// get the closest nodes to the desired node ID
 	// then add to a stack. we'll 
@@ -175,8 +187,21 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 	// requests up to alpha requests
 	for {
 		reply := <-replyChannel
+		if reply == nil{
+			Print(DHTHelperTag, "Node %v received dropped DhtNode.Find%sHandler packet", Short(node.NodeId), targetType)
+			continue
+		}
 		Print(DHTHelperTag, "Node %v received Find%v response from %v. Response is %v, %v", Short(node.NodeId), targetType, Short(reply.QueriedNodeId), reply.TryNodes, reply.TargetIpAddr)
 		if targetType == "User" && reply.TargetIpAddr != "" {
+			//send user to closest node that did not return value
+			for _, entryDist := range closestNodes{
+				if triedNodes[entryDist.RoutingEntry.NodeId] && entryDist.RoutingEntry.NodeId != reply.QueriedNodeId{
+					args := &StoreUserArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: node.IpAddr, AnnouncedUserId: targetId, AnnouncedIpAddr: reply.TargetIpAddr}
+					var reply2 StoreUserReply
+					call(entryDist.RoutingEntry.IpAddr, "DhtNode.StoreUserHandler", args, &reply2)
+					break //only cache once!
+				}
+			}
 			return []RoutingEntryDist{} , reply.TargetIpAddr
 		}
 		// process the reply, see if we are done
@@ -226,35 +251,12 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 	*/
 	Print(DHTHelperTag, "Node %v sending find%vQuery to node %v. Looking for ID %v", Short(node.NodeId), targetType, Short(entry.NodeId), Short(targetId))
 	
-	ok := false
 	args := &FindIdArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: node.IpAddr, TargetId: targetId}
 	var reply FindIdReply
+	call(entry.IpAddr, "DhtNode.Find" + targetType + "Handler", args, &reply) //if failed, reply will be empty!
 	
-	for !ok {
-		ok = call(entry.IpAddr, "DhtNode.Find" + targetType + "Handler", args, &reply)
-		if !ok {
-			log.Fatal("Failed! Will try again.")
-		}
-	}
 	// add reference to reply onto the channel
 	replyChannel <- &reply
-}
-
-// FindUser RPC handlers
-//checks if user is in, if not, return false
-func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error {
-	Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. My kv is %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId), node.kv)
-	reply.QueriedNodeId = node.NodeId
-	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
-	ipAddr, exists := node.kv[args.TargetId]
-	if exists {
-		reply.TargetIpAddr = ipAddr
-		Print(HandlerTag, "Node %v FindUserHandler (finished) called by %v, TargetId: %v. Target user is in my map! returning user", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
-	} else{
-		reply.TryNodes = node.getClosest(K, args.TargetId)
-		Print(HandlerTag, "Node %v FindUserHandler (finished) called by %v, TargetId: %v. Target user is NOT in my map! returning closest nodes", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
-	}	
-	return nil
 }
 
 // FindUser RPC API
