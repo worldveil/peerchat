@@ -272,4 +272,10 @@ func TestRealLife(t* testing.T) {
     //TODO: implement this test
 }
 
-
+/*
+**  TestRealLife but with offline messaging. 
+**
+*/
+func TestSomething(t* testing.T) {
+    //TODO: implement and name this test
+}
