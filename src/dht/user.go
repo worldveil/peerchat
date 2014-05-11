@@ -140,6 +140,7 @@ func (u *User) setupUser(){
 	rpcs := u.node.SetupNode()
 	rpcs.Register(u)
 
+	os.Remove(u.node.IpAddr)
 	// set up a connection listener
 	l, e := net.Listen("unix", u.node.IpAddr)
 	if e != nil {
