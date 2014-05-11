@@ -52,8 +52,20 @@ func registerMany(num_users int) map[string]*User{
 		users[username] = user
 	}
 
+	time.Sleep(time.Second)
+
+	for _, user := range(users) {
+		user.node.AnnounceUser(user.name, user.node.IpAddr)
+	}
+	time.Sleep(time.Second)
 	return users
 
+}
+
+func killAll(users map[string]*User){
+	for _, user := range users {
+		user.node.Dead <- true
+	}
 }
 
 /*
@@ -125,7 +137,7 @@ func TestDhtNodeUnit(t *testing.T) {
 **	and arrive unaltered. 
 */
 func TestBasic(t *testing.T) {
-
+	fmt.Println("Running TestBasic")
 	
 
 	port1 := ":4444"
@@ -174,26 +186,19 @@ func TestBasic(t *testing.T) {
 }
 
 /*
-**  RegisterAndLogin 30 users and make sure that each user can lookup
+**  RegisterAndLogin 50 users and make sure that each user can lookup
 **  the IP address of every other user
 */
 func TestManyRegistrations(t *testing.T) {
-	
-	users := registerMany(100)
-	time.Sleep(time.Second)
-	for _, user := range users{
-		user.node.AnnounceUser(user.name, user.node.IpAddr)
-	}
-	time.Sleep(time.Second)
+	fmt.Println("Running TestManyRegistrations")	
+	users := registerMany(50)
+	defer killAll(users)
 	for _, user := range users{
 		for _, targetUser := range users{
 			checkLookup(t, user, targetUser)
 		}
 	}
-	
-	for _, user := range users {
-		user.node.Dead <- true
-	}
+	fmt.Println("Passed!")
 }
 
 /*
@@ -201,13 +206,10 @@ func TestManyRegistrations(t *testing.T) {
 **  and make sure they can look each other up
 */
 func TestManyMoreRegistrations(t *testing.T) {
+	fmt.Println("Running TestManyMoreRegistrations")
 	size := 100
 	users := registerMany(size)
-	time.Sleep(time.Second)
-	for _, user := range users {
-		user.node.AnnounceUser(user.name, user.node.IpAddr)
-	}
-	time.Sleep(time.Second)
+	defer killAll(users)
 	for i:=0; i<20; i++ {
 		idx :=  strconv.Itoa(rand.Int() % size)
 		idx2 := strconv.Itoa(rand.Int() % size)
@@ -215,9 +217,7 @@ func TestManyMoreRegistrations(t *testing.T) {
 		checkLookup(t, users[idx], users[idx2])
 		checkLookup(t, users[idx2], users[idx])
 	}
-	for _, user := range users {
-		user.node.Dead <- true
-	}
+	fmt.Println("Passed!")
 }
 
 /*
@@ -235,7 +235,7 @@ func TestSends(t *testing.T) {
 	for _, user := range users {
 		user.node.Dead <- true
 	}
-
+	fmt.Println("Passed!")
 }
 
 /*
