@@ -17,6 +17,7 @@ type User struct {
 	name string
 	MessageHistory map[string][]*SendMessageArgs // username => messages we've gotten so far
 	pendingMessages map[string][]*SendMessageArgs // username => slice of pending messages to apply
+	receivedMessageIdentifiers map[int64]bool // messageIdentifier (int64) => true if seen messageIdentifier before
 }
 
 const PEERCHAT_USERDATA_DIR = "/tmp"
@@ -75,9 +76,9 @@ func Deserialize(username string) (bool, *User) {
 	path := UsernameToPath(username)
 	Print(UserTag, "Loading user from path=%s", path)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-	    // this file does not exist
-	    Print(UserTag, "File %s does not exist!", path)
-	    return false, newUser
+		// this file does not exist
+		Print(UserTag, "File %s does not exist!", path)
+		return false, newUser
 	}
 	
 	decodeFile, err := os.Open(path)
@@ -134,6 +135,10 @@ func RegisterAndLogin(username string, userIpAddr string, bootstrapIpAddr string
 	return user
 }
 
+func (u *User) Logoff() {
+	//TODO: implement this
+}
+
 func (u *User) setupUser(){
 	rpcs := u.node.SetupNode()
 	rpcs.Register(u)
@@ -167,8 +172,9 @@ func MakeUser(username string, ipAddr string) *User{
 	Print(UserTag, "Creating a new User...")
 	emptyPendingMessages := make(map[string][]*SendMessageArgs)
 	history := make(map[string][]*SendMessageArgs)
+	receivedMessageIdentifiers := make(map[int64]bool)
 	node := MakeNode(username, ipAddr)
-	user := &User{node: node, name: username, pendingMessages: emptyPendingMessages, MessageHistory: history}
+	user := &User{node: node, name: username, pendingMessages: emptyPendingMessages, MessageHistory: history, receivedMessageIdentifiers: receivedMessageIdentifiers}
 	return user
 }
 
@@ -237,16 +243,31 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 	
 	user.mu.Lock()
 	defer user.mu.Unlock()
-	
-	Print(UserTag, "%s recieved: %s, from %s at %v", user.name, args.Content, args.FromUsername, args.Timestamp)
-	if _, ok := user.MessageHistory[args.FromUsername]; !ok {
-	    user.pendingMessages[args.FromUsername] = make([]*SendMessageArgs, 0)
+
+	// check if message is for you, and you havn’t received it before -> then process
+	if args.ToUsername == user.name{
+		_, seenBefore := user.receivedMessageIdentifiers[args.MessageIdentifier]
+		if ! seenBefore{
+			Print(UserTag, "%s recieved a previously unseen message meant for me!: %s, from %s at %v", user.name, args.Content, args.FromUsername, args.Timestamp)
+			//initialize entry in messageHistory if first time hearing from user
+			if _, ok := user.MessageHistory[args.FromUsername]; !ok {
+				user.pendingMessages[args.FromUsername] = make([]*SendMessageArgs, 0)
+			}
+			user.MessageHistory[args.FromUsername] = append(user.MessageHistory[args.FromUsername], args)
+			user.receivedMessageIdentifiers[args.MessageIdentifier] = true
+		} else {
+			Print(UserTag, "%s recieved a previously seen message meant for me! Disregarding: %s, from %s at %v", user.name, args.Content, args.FromUsername, args.Timestamp)
+		}
+	} else {
+		// if not for you -> store in pendingMessages map
+		if _, ok := user.pendingMessages[args.ToUsername]; !ok {
+			user.pendingMessages[args.ToUsername] = make([]*SendMessageArgs, 0)
+		}
+		user.pendingMessages[args.ToUsername] = append(user.pendingMessages[args.ToUsername], args)
 	}
-	user.MessageHistory[args.FromUsername] = append(user.MessageHistory[args.FromUsername], args)
 	
 	// persist to disk
 	user.Serialize()
-	
 	return nil
 }
 
@@ -257,8 +278,9 @@ func (user *User) SendMessage(username string, content string) {
 	*/
 	user.mu.Lock()
 	Print(UserTag, "Queuing message \"%s\" to %s", content, username)
+	//initilize map entry for a certain user
 	if _, ok := user.pendingMessages[username]; !ok {
-	    user.pendingMessages[username] = make([]*SendMessageArgs, 0)
+		user.pendingMessages[username] = make([]*SendMessageArgs, 0)
 	} 
 	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now(), ToUsername: username, FromUsername: user.name, MessageIdentifier: nrand()}
 	user.pendingMessages[username] = append(user.pendingMessages[username], pendingMessage)
@@ -321,6 +343,12 @@ func (user *User) startSender() {
 							user.pendingMessages[username] = append(
 								user.pendingMessages[username][:0], 
 								append([]*SendMessageArgs{&args}, user.pendingMessages[username][0:]...)...)
+							//forward to K nearest neighbors
+							kClosestEntryDists := user.node.FindNearestNodes(Sha1(username))
+							for _, entryDist := range kClosestEntryDists {
+								var replyOther SendMessageReply
+								call(entryDist.RoutingEntry.IpAddr, "User.SendMessageHandler", args, &replyOther)
+							}
 							user.mu.Unlock()
 						}
 					}

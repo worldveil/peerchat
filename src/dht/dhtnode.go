@@ -116,9 +116,9 @@ func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 
 	Print(ApiTag, "Node %v calling AnnounceUser, username: %v, ipAddr: %v", Short(node.NodeId), username, ipAddr)
 	// does lookup(node.NodeId) in order to populate other node's routing table with my info
-	node.idLookup(node.NodeId, "Node")
-	// does lookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node
-	kClosestEntryDists, _ := node.idLookup(Sha1(username), "Node")
+	node.FindNearestNodes(node.NodeId)
+	// does lookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node	
+	kClosestEntryDists:= node.FindNearestNodes(Sha1(username))
 	args := &StoreUserArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: ipAddr, AnnouncedUserId: Sha1(username), AnnouncedIpAddr: ipAddr}
 	for _, entryDist := range kClosestEntryDists{
 		var reply PingReply
@@ -157,7 +157,8 @@ func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error
 }
 
 // helper function called by both FindUser and AnnounceUser
-// returns a k-length slice of RoutingEntriesDist sorted in increasing order of dist from 
+// if targetType is "User" and found, returns an empty slice and ipAddress of target Username
+// else returns a k-length slice of RoutingEntriesDist sorted in increasing order of dist from, and empty string
 func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDist, string) {
 	Print(DHTHelperTag, "Node %v calling idLookup, targetId: %v, targetType: %v", Short(node.NodeId), Short(targetId), targetType)
 	// get the closest nodes to the desired node ID
@@ -268,7 +269,7 @@ func (node *DhtNode) sendFindIdQuery(entry RoutingEntry, replyChannel chan *Find
 // FindUser RPC API
 // returns IP of username or "" if can't find IP of username
 func (node *DhtNode) FindUser(username string) string {
-	Print(ApiTag, "Node %v calling FindUser", Short(node.NodeId))
+	Print(ApiTag, "Node %v calling FindUser on %v", Short(node.NodeId), username)
 	targetId := Sha1(username)
 	//check if have locally
 	ipAddr, exists := node.kv[targetId]
@@ -278,6 +279,13 @@ func (node *DhtNode) FindUser(username string) string {
 	//do a idLookup to get K closest to username- query them in order of ascending distance until finds username
 	_, ipAddr = node.idLookup(targetId, "User")	
 	return ipAddr
+}
+
+//called by user to find NearestNodes to ID
+func (node *DhtNode) FindNearestNodes(targetId ID) []RoutingEntryDist {
+	Print(ApiTag, "Node %v calling FindUser on %v", Short(node.NodeId), Short(targetId))
+	kClosestEntryDists, _ := node.idLookup(targetId, "Node")
+	return kClosestEntryDists
 }
 
 // Ping RPC handlers

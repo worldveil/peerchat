@@ -38,8 +38,8 @@ func isEqualRE(entry1 []RoutingEntry, entry2 []RoutingEntry) bool{
 	return true
 }
 
-func registerMany(num_users int) map[int]*User{
-	users := make(map[int]*User)
+func registerMany(num_users int) []*User{
+	users := make([]*User, num_users)
 
 	bootstrap := ""
 
@@ -62,7 +62,7 @@ func registerMany(num_users int) map[int]*User{
 
 }
 
-func killAll(users map[int]*User){
+func killAll(users []*User){
 	for _, user := range users {
 		user.node.Dead <- true
 	}
@@ -219,8 +219,9 @@ func TestManyMoreRegistrations(t *testing.T) {
 	}
 	fmt.Println("Passed!")
 }
-func sendAndCheck(t *testing.T, sender *User, receiver *User, idx int) {
+func sendAndCheck(t *testing.T, sender *User, receiver *User) {
 	msg := "message " + strconv.Itoa(rand.Int() % 1000)
+	idx := len(receiver.MessageHistory[sender.name])
 	sender.SendMessage(receiver.name, msg)
 	time.Sleep(time.Second)
 	assertEqual(t, receiver.MessageHistory[sender.name][idx].Content, msg)
@@ -236,7 +237,7 @@ func TestSends(t *testing.T) {
 	defer killAll(users)
 	for i:=0; i < size; i++ {
 		for j:=0; j<size; j++ {
-			go sendAndCheck(t, users[i], users[j], 0)
+			go sendAndCheck(t, users[i], users[j])
 		}
 	}
 	fmt.Println("Passed!")
@@ -248,9 +249,42 @@ func TestSends(t *testing.T) {
 **  tell that logged-off users are not online
 */
 func TestSomeFailures(t* testing.T) {
-	users := registerMany(10)
+	size := 10
+	failures := 3
+	users := registerMany(size)
 	defer killAll(users)
-	
+	for i:=0; i < size-1; i++ {
+		go sendAndCheck(t, users[i], users[i+1])
+	}
+	go sendAndCheck(t, users[size-1], users[0])
+	killAll(users[:failures])
+	time.Sleep(time.Second)
+	for _, aliveNode := range users[failures:] {
+		for _, otherAliveNode := range users[failures:] {
+			checkLookup(t, aliveNode, otherAliveNode)
+		}
+		for _, deadNode := range users[:failures] {
+			assertEqual(t, aliveNode.IsOnline(deadNode.name), false)
+		}
+	}
+
+}
+
+func switchIp(users []*User, startPort int) {
+	p := startPort
+	for i:=0;i<len(users);i++ {
+		user := users[i]
+		name := user.name
+		user.Logoff()
+		ipAddr := localIp + ":" + strconv.Itoa(p + 8000)
+		p++
+		newUser := Login(name, ipAddr)
+		users[i] = newUser
+	}
+	time.Sleep(time.Second)
+	for _, user := range users {
+		user.node.AnnounceUser(user.name, user.node.IpAddr)
+	}
 }
 
 /*
@@ -259,7 +293,14 @@ func TestSomeFailures(t* testing.T) {
 **  lookup the other users
 */
 func TestPersistance(t* testing.T) {
-	//TODO: implement this test
+	users := registerMany(3)
+	defer killAll(users)
+	users[0].Logoff()
+	newUser := Login("0", localIp + ":8004")
+	defer killAll([]*User{newUser})
+	time.Sleep(time.Second)
+	checkLookup(t, newUser, users[1])
+	checkLookup(t, newUser, users[2])
 }
 
 /*
@@ -268,8 +309,70 @@ func TestPersistance(t* testing.T) {
 **  that user's new address.
 */
 func TestNewIP(t* testing.T) {
-	//TODO: implement this test
+	size := 3
+	newIpNum := 1
+	users := registerMany(size)
+	defer killAll(users)
+	switchIp(users[:newIpNum], size+1)
+	time.Sleep(time.Second)
+	for _, olduser := range users[newIpNum:] {
+		for _, newuser := range users[:newIpNum] {
+			checkLookup(t, olduser, newuser)
+		}
+	}
 }
+
+func slowRegisterMany(n int, t int) []*User{
+	users := make([]*User, n)
+
+	bootstrap := ""
+
+	for i :=0; i < n; i++{
+		username := strconv.Itoa(i)
+		ipAddr := localIp + ":" + strconv.Itoa(i + 8000)
+		user := RegisterAndLogin(username, ipAddr, bootstrap)
+		bootstrap = localIp + ":" + strconv.Itoa(i + 8000)
+		time.Sleep(time.Millisecond * time.Duration(rand.Int() % (t*1000/n)))
+		users[i] = user
+	}
+
+	time.Sleep(time.Second)
+
+	for _, user := range(users) {
+		user.node.AnnounceUser(user.name, user.node.IpAddr)
+	}
+	time.Sleep(time.Second)
+	return users
+}
+
+const sendprob = 80
+const logoffprob = 20
+
+const logonprob = 50
+const changeipprob = 30
+
+func randomOnAction(t *testing.T, idx int, on_users, off_users []*User) ([]*User, []*User) {
+	val := rand.Int() % 100
+	user := on_users[idx]
+	if val < sendprob {
+		ridx := rand.Int() % len(on_users)
+		go sendAndCheck(t, on_users[idx], on_users[ridx])
+	} else {
+		user.Logoff()
+		on_users = append(on_users[:idx], on_users[idx+1:]...)
+		off_users = append(off_users, user)
+	}
+
+	return on_users, off_users
+}
+
+func randomOffAction(t *testing.T, idx int, on_users, off_users []*User) ([]*User, []*User) {
+	val := rand.Int() % 100
+	if val < logonprob {
+		
+	}
+	return on_users, off_users
+}		
 
 /*
 **  Register 10 users. Have them chat with each other for a bit.
@@ -281,7 +384,16 @@ func TestNewIP(t* testing.T) {
 **  pairs can look each other up
 */
 func TestRealLife(t* testing.T) {
-    //TODO: implement this test
+	size := 30
+	rounds := 5
+	on_users := slowRegisterMany(size, 10)
+	off_users := make([]*User, size)
+	for r := 0; r<rounds; r++ {
+		for i:=0; i<len(on_users); i++  {
+			on_users, off_users = randomOnAction(t, i, on_users, off_users)
+		}
+		time.Sleep(time.Millisecond * 10)
+	}
 }
 
 /*
