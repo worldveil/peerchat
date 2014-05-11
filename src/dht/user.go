@@ -32,12 +32,12 @@ func UsernameToPath(username string) string {
 	return PEERCHAT_USERDATA_DIR + "/" + username + ".gob"
 }
 
-func (u *User) GetMessagesFrom(username string) []*SendMessageArgs {
+func (u *User) GetMessagesFrom(other *User) []*SendMessageArgs {
 	/*
 		Returns the list of SendMessageArgs
 	*/
-	if _, ok := u.MessageHistory[username]; ok {
-		return u.MessageHistory[username]
+	if _, ok := u.MessageHistory[other.name]; ok {
+		return u.MessageHistory[other.name]
 	}
 	return make([]*SendMessageArgs, 0)
 }

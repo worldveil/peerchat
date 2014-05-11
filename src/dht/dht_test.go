@@ -160,8 +160,8 @@ func TestBasic(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	
 	// ensure the messages got there
-	assertEqual(t, user2.GetMessagesFrom(username1)[0].Content, msg1)
-	assertEqual(t, user1.GetMessagesFrom(username2)[0].Content, msg2)
+	assertEqual(t, user2.GetMessagesFrom(user1)[0].Content, msg1)
+	assertEqual(t, user1.GetMessagesFrom(user2)[0].Content, msg2)
 	
 	assertEqual(t, len(user2.MessageHistory[username1]), 1)
 	assertEqual(t, len(user1.MessageHistory[username2]), 1)
