@@ -64,7 +64,8 @@ func registerMany(num_users int) map[string]*User{
 
 func killAll(users map[string]*User){
 	for _, user := range users {
-		user.node.Dead <- true
+//		user.node.Dead <- true
+		user.kill()
 	}
 }
 
@@ -191,7 +192,7 @@ func TestBasic(t *testing.T) {
 */
 func TestManyRegistrations(t *testing.T) {
 	fmt.Println("Running TestManyRegistrations")	
-	users := registerMany(50)
+	users := registerMany(5)
 	defer killAll(users)
 	for _, user := range users{
 		for _, targetUser := range users{
@@ -207,7 +208,7 @@ func TestManyRegistrations(t *testing.T) {
 */
 func TestManyMoreRegistrations(t *testing.T) {
 	fmt.Println("Running TestManyMoreRegistrations")
-	size := 100
+	size := 10
 	users := registerMany(size)
 	defer killAll(users)
 	for i:=0; i<20; i++ {

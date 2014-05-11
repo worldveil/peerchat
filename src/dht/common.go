@@ -20,7 +20,7 @@ const (
 	Offline = "Offline"
 )
 
-const Debug=0
+const Debug=1
 
 func Print(tag string, format string, a ...interface{}) (n int, err error) {
 	tag = "["+tag+"]		"

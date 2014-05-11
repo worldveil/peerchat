@@ -149,20 +149,24 @@ func (u *User) setupUser(){
 
 	// spin off go routine to listen for connections
 	go func() {
-		Print(StartTag, "Connection listener for %s starting...", u.node.IpAddr)
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				log.Fatal("listen error: ", err);
+			Print(StartTag, "Connection listener for %s starting...", u.node.IpAddr)
+			for u.dead == false {
+				conn, err := l.Accept()
+				if err != nil {
+					log.Fatal("listen error: ", err);
+				}
+				
+				// spin off goroutine to handle
+				// RPC requests from other nodes
+				if u.dead == false {
+					go rpcs.ServeConn(conn)
+				} else {
+					conn.Close()
+				}
 			}
 			
-			// spin off goroutine to handle
-			// RPC requests from other nodes
-			go rpcs.ServeConn(conn)
-		}
-		
-		Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", u.node.IpAddr)
-		fmt.Println("here for no reason")
+			Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", u.node.IpAddr)
+			fmt.Println("here for no reason")
 	}()
 }
 
