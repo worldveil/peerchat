@@ -80,6 +80,8 @@ func killAll(users []*User){
 }
 
 func TestSerialization(t *testing.T) {
+	fmt.Println("Running TestSerialization")
+	defer fmt.Println("passed")
 	
 	port1 := ":4444"
 	port2 := ":5555"
@@ -135,6 +137,9 @@ func TestSerialization(t *testing.T) {
 		assertEqual(t, sliceEqual(one.Node.RoutingTable, user1.Node.RoutingTable), true)
 		assertEqual(t, sliceEqual(two.Node.RoutingTable, user2.Node.RoutingTable), true)
 	}
+
+	user1.Logoff()
+	user2.Logoff()
 }
 
 /*
@@ -207,7 +212,7 @@ func TestDhtNodeUnit(t *testing.T) {
 */
 func TestBasic(t *testing.T) {
 	fmt.Println("Running TestBasic")
-	
+	defer fmt.Println("passed")
 
 	port1 := ":4444"
 	port2 := ":5555"
@@ -301,6 +306,7 @@ func sendAndCheck(t *testing.T, sender *User, receiver *User) {
 **  to each other
 */
 func TestSends(t *testing.T) {
+	fmt.Println("Running TestSends")
 	size := 5
 	users := registerMany(5)
 	defer killAll(users)
@@ -318,6 +324,8 @@ func TestSends(t *testing.T) {
 **  tell that logged-off users are not online
 */
 func TestSomeLogoffs(t* testing.T) {
+	fmt.Println("Running TestSomeLogoffs")
+	defer fmt.Println("Passed!")
 	size := 10
 	failures := 3
 	users := registerMany(size)
@@ -364,6 +372,9 @@ func switchIp(users []*User, startPort int) []*User{
 **  lookup the other users
 */
 func TestPersistance(t* testing.T) {
+	fmt.Println("Running TestPersistance")
+	defer fmt.Println("Passed!")
+
 	users := registerMany(3)
 	defer killAll(users)
 	users[0].Logoff()
@@ -381,6 +392,9 @@ func TestPersistance(t* testing.T) {
 **  that user's new address.
 */
 func TestNewIP(t* testing.T) {
+	fmt.Println("Running TestNewIP")
+	defer fmt.Println("Passed!")
+
 	size := 3
 	newIpNum := 1
 	users := registerMany(size)
@@ -395,6 +409,9 @@ func TestNewIP(t* testing.T) {
 }
 
 func TestOfflineChat(t* testing.T) {
+	fmt.Println("Running TestOfflineChat")
+	defer fmt.Println("Passed!")
+
     size := 3
     users := registerMany(size)
     defer killAll(users)
@@ -480,6 +497,9 @@ func randomOffAction(t *testing.T, idx int, on_users, off_users []*User) ([]*Use
 **  pairs can look each other up
 */
 func TestRealLife(t* testing.T) {
+	fmt.Println("Running TestRealLife")
+	defer fmt.Println("Passed!")
+
 	size := 30
 	rounds := 5
 	on_users := slowRegisterMany(size, 10)
