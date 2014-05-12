@@ -339,12 +339,13 @@ func TestSomeLogoffs(t* testing.T) {
 
 }
 
-func switchIp(users []*User, startPort int) {
+func switchIp(users []*User, startPort int) []*User{
 	p := startPort
 	for i:=0;i<len(users);i++ {
 		user := users[i]
 		name := user.Name
 		user.Logoff()
+		time.Sleep(time.Second)
 		ipAddr := localIp + ":" + strconv.Itoa(p + 8000)
 		p++
 		newUser := Login(name, ipAddr)
@@ -354,6 +355,7 @@ func switchIp(users []*User, startPort int) {
 	for _, user := range users {
 		user.Node.AnnounceUser(user.Name, user.Node.IpAddr)
 	}
+	return users
 }
 
 /*
@@ -383,7 +385,7 @@ func TestNewIP(t* testing.T) {
 	newIpNum := 1
 	users := registerMany(size)
 	defer killAll(users)
-	switchIp(users[:newIpNum], size+1)
+	users = append(switchIp(users[:newIpNum], size+1), users[newIpNum:]...)
 	time.Sleep(time.Second)
 	for _, olduser := range users[newIpNum:] {
 		for _, newuser := range users[:newIpNum] {

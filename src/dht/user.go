@@ -213,7 +213,8 @@ func loadUser(username, myIpAddr string) *User {
 			
 			// otherwise, create a new nodeId
 			user.Node.NodeId = Sha1(myIpAddr)
-			
+			user.Node.IpAddr = myIpAddr
+
 			Print(UserTag, "IP Address changed to %s, creating new NodeID=%s", myIpAddr, user.Node.NodeId)
 			
 			// and rearrange the table based on new nodeId
