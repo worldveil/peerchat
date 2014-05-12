@@ -52,8 +52,29 @@ A very similar effort is BitTorrent Chat \cite{?}.
 
 \subsection{System}
 Peerchat is divided into three main subsystems. A distributed hash table based on Kademlia \cite{?} maps a username to an ip address. A 
+
+Separate threads:
+\begin{enumerate}
+	\item Message Queuing
+	\item Message Sender
+	\item Connection Acceptor
+	\item Periodic Backup 
+\end{enumerate}
+
+First, messages are queued by a sender. The user in the chat interface sends a message, which is put into the pending messages queue. 
+
+(message sender desc)
+
+(Connection Acceptor desc)
+
+(Periodic Backup  description here)
+
 \subsection{Protocol}
+
 \subsection{Persistence}
+
+We persist nodes' state by periodically serializing a user's routing table and messaging log to disk. 
+
 \subsection{Offline Usage}
 
 \section{Demonstration}
