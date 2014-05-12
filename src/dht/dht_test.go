@@ -249,15 +249,15 @@ func TestSends(t *testing.T) {
 **  users can look each other up. Make sure the remaining users can
 **  tell that logged-off users are not online
 */
-func TestSomeFailures(t* testing.T) {
+func TestSomeLogoffs(t* testing.T) {
 	size := 10
 	failures := 3
 	users := registerMany(size)
 	defer killAll(users)
-	for i:=0; i < size-1; i++ {
+	for i:=0; i < len(users)-1; i++ {
 		go sendAndCheck(t, users[i], users[i+1])
 	}
-	go sendAndCheck(t, users[size-1], users[0])
+	sendAndCheck(t, users[size-1], users[0])
 	killAll(users[:failures])
 	time.Sleep(time.Second)
 	for _, aliveNode := range users[failures:] {
