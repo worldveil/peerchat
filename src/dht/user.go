@@ -113,9 +113,11 @@ func Login(username string, userIpAddr string) *User {
 	
 	Print(UserTag, "Attempting to log on with username=%s and ip=%s...", username, userIpAddr) 
 	user := loadUser(username, userIpAddr)
+	fmt.Println(user.Node.NodeId)
 	if user != nil {
 		user.setupUser()
 		time.Sleep(10*time.Millisecond)
+		fmt.Println(user.Node.NodeId)
 		user.Node.AnnounceUser(username, userIpAddr)
 		go user.startSender()
 		go user.startPersistor()
@@ -217,7 +219,7 @@ func loadUser(username, myIpAddr string) *User {
 	
 		// check and see if ipaddr is the same as the old one
 		// if so, we don't need to change anything
-		if user.Node.IpAddr != myIpAddr {
+		if user.Node.IpAddr != myIpAddr || true{
 			
 			// otherwise, create a new nodeId
 			user.Node.NodeId = Sha1(myIpAddr)
@@ -400,7 +402,7 @@ func (user *User) startSender() {
 			}
 		}		
 		Print(SendingTag, "Sender loop for %s running, pending: %v...", user.Name, user.PendingMessages)
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 

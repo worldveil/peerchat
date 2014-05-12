@@ -4,6 +4,7 @@ import "math"
 import "github.com/pmylund/sortutil"
 import "net/rpc"
 import "encoding/gob"
+import "fmt"
 
 const ApiTag = "API"
 const DHTHelperTag = "HELPER"
@@ -91,7 +92,6 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 			bucket_idx--
 		}
 	}
-	// fmt.Println(res)
 	sortutil.AscByField(res, "Distance")
 	return res
 }
@@ -187,10 +187,14 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 	// requests up to alpha requests
 	for {
 		reply := <-replyChannel
-		if reply == nil{
+		if reply.QueriedNodeId == 0{
 			Print(DHTHelperTag, "Node %v received dropped DhtNode.Find%sHandler packet", Short(node.NodeId), targetType)
+			if sent == 1{
+				return closestNodes, ""
+			}
 			continue
 		}
+		fmt.Println(node.NodeId,"queried node id is ",  reply.QueriedNodeId)
 		Print(DHTHelperTag, "Node %v received Find%v response from %v. Response is %v, %v", Short(node.NodeId), targetType, Short(reply.QueriedNodeId), reply.TryNodes, reply.TargetIpAddr)
 		//update our routing table with queriedNodeId
 		node.updateRoutingTable(RoutingEntry{NodeId: reply.QueriedNodeId, IpAddr: reply.QueriedIpAddr})

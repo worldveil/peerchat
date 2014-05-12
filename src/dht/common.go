@@ -21,7 +21,7 @@ const (
 	Offline = "Offline"
 )
 
-const Debug=0
+const Debug=1
 
 func Print(tag string, format string, a ...interface{}) (n int, err error) {
 	tag = "["+tag+"]		"
@@ -33,6 +33,7 @@ func Print(tag string, format string, a ...interface{}) (n int, err error) {
 
 func Short(id ID) string{
 	my_string := strconv.FormatUint(uint64(id), 10)
+	// fmt.Println(my_string)
 	return my_string[:4]
 }
 
@@ -188,18 +189,11 @@ func appendToCsv(filename, text string) {
 // the return value is true if the server responded, and false
 // if call() was not able to contact the server. in particular,
 // the reply's contents are only valid if call() returned true.
-//
-// you should assume that call() will time out and return an
-// error after a while if it doesn't get a reply from the server.
-//
-// please use call() to send all RPCs, in client.go and server.go.
-// please don't change this function.
-//
 func call(srv string, rpcname string, args interface{}, reply interface{}) bool {
 
 	text := fmt.Sprintf("%s, %d, %d, %d\n", rpcname, time.Now().Unix(), K, Alpha)
 	appendToCsv("run.csv", text)
-	
+
 	client, errx := rpc.Dial("tcp", srv)
 	if errx != nil {
 		return false
