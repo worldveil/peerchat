@@ -430,7 +430,7 @@ func (user *User) UpdateCurrentPeer(peer string) {
 
 func (user *User) AllMessagesFromUser(other string) []*SendMessageArgs {
 	if messages, ok := user.MessageHistory[other]; ok {
-		
+		sortutil.AscByField(messages, "Timestamp")
 		return messages
 	} 
 	return make([]*SendMessageArgs, 0)

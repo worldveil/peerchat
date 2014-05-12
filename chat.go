@@ -100,7 +100,7 @@ func startChat() {
     		peer = input(reader)
     		fmt.Printf("Starting to talk to: %s\n", peer)
 	    	user.UpdateCurrentPeer(peer)
-    		fmt.Printf("%s> ", peer)
+    		fmt.Printf("me> ")
     	
     	// State 2) continue chatting
     	} else {
@@ -117,7 +117,7 @@ func startChat() {
 	    		peer = text[1:]
 	    		fmt.Printf("Swtiching to talk to: %s\n", peer)
 	    		user.UpdateCurrentPeer(peer)
-	    		fmt.Printf("%s> ", peer)
+	    		fmt.Printf("me> ")
 	    		paint(user)
 	    		
 	    	} else if text == "exit" {
@@ -165,11 +165,8 @@ func paint(user *dht.User) {
 		fmt.Printf("\r                                     \n")
 		
 		newMessages := user.AllMessagesFromUser(user.Current)
-		min := 10
-		if len(newMessages) < min {
-			min = len(newMessages)
-		}
-		for _, msg := range newMessages[:min] {
+		for i, _ := range newMessages {
+			msg := newMessages[i]
 			fmt.Printf("\r%s> %s                                      \n", msg.FromUsername, msg.Content)
 		}
 	}
