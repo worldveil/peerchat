@@ -147,7 +147,6 @@ func RegisterAndLogin(username string, userIpAddr string, bootstrapIpAddr string
 }
 
 func (user *User) Logoff() {
-	user.Serialize()
 	user.dead = true
 	user.l.Close()
 }
@@ -209,6 +208,7 @@ func loadUser(username, myIpAddr string) *User {
 	
 	// first deserialize the old User struct from disk
 	success, user := Deserialize(username)
+	fmt.Println("go to load user", success, user)
 	
 	// there was a userfile to load
 	if success {
@@ -221,8 +221,7 @@ func loadUser(username, myIpAddr string) *User {
 			
 			// otherwise, create a new nodeId
 			user.Node.NodeId = Sha1(myIpAddr)
-			user.Node.IpAddr = myIpAddr
-
+			
 			Print(UserTag, "IP Address changed to %s, creating new NodeID=%s", myIpAddr, user.Node.NodeId)
 			
 			// and rearrange the table based on new nodeId
@@ -307,9 +306,10 @@ func (user *User) SendMessage(username string, content string) {
 	//initilize map entry for a certain user
 	if _, ok := user.PendingMessages[username]; !ok {
 		user.PendingMessages[username] = make([]*SendMessageArgs, 0)
-	} 
+	}
 	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now(), ToUsername: username, FromUsername: user.Name, MessageIdentifier: nrand()}
 	user.PendingMessages[username] = append(user.PendingMessages[username], pendingMessage)
+	user.MessageHistory[username] = append(user.MessageHistory[username], pendingMessage) 
 	user.mu.Unlock()
 }
 
@@ -387,9 +387,6 @@ func (user *User) startSender() {
 								user.PendingMessages[username][:0], 
 								append([]*SendMessageArgs{&args}, user.PendingMessages[username][0:]...)...)
 							
-							// append to our convo history too
-							user.MessageHistory[username] = append(user.MessageHistory[username], &args) 
-							
 							//forward to K nearest neighbors
 							kClosestEntryDists := user.Node.FindNearestNodes(Sha1(username))
 							for _, entryDist := range kClosestEntryDists {
@@ -430,6 +427,14 @@ func (user *User) UpdateCurrentPeer(peer string) {
 	user.mu.Lock()
 	defer user.mu.Unlock()
 	user.Current = peer
+}
+
+func (user *User) AllMessagesFromUser(other string) []*SendMessageArgs {
+	if messages, ok := user.MessageHistory[other]; ok {
+		
+		return messages
+	} 
+	return make([]*SendMessageArgs, 0)
 }
 
 func (user *User) AreNewMessagesFrom(other string) (bool, []*SendMessageArgs) {

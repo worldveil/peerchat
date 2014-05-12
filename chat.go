@@ -110,6 +110,7 @@ func startChat() {
 	    	if text == "" {
 	    		// do nothing
 	    		fmt.Printf("%s> \n", peer)
+	    		paint(user)
 	    	
 	    	} else if text[0] == 92 {
 	    		// switching users to chat with
@@ -117,6 +118,7 @@ func startChat() {
 	    		fmt.Printf("Swtiching to talk to: %s\n", peer)
 	    		user.UpdateCurrentPeer(peer)
 	    		fmt.Printf("%s> ", peer)
+	    		paint(user)
 	    		
 	    	} else if text == "exit" {
 	    		// exit peerchat
@@ -162,8 +164,7 @@ func paint(user *dht.User) {
 		fmt.Printf("\rConversation with `%s`:                                      \n", user.Current)
 		fmt.Printf("\r                                     \n")
 		
-		_, newMessages := user.AreNewMessagesFrom(user.Current)
-		fmt.Printf("\rfrom %s, %v                              \n", user.Current, newMessages)
+		newMessages := user.AllMessagesFromUser(user.Current)
 		min := 10
 		if len(newMessages) < min {
 			min = len(newMessages)
