@@ -206,7 +206,6 @@ func loadUser(username, myIpAddr string) *User {
 	
 	// first deserialize the old User struct from disk
 	success, user := Deserialize(username)
-	fmt.Println("go to load user", success, user)
 	
 	// there was a userfile to load
 	if success {
@@ -215,7 +214,7 @@ func loadUser(username, myIpAddr string) *User {
 	
 		// check and see if ipaddr is the same as the old one
 		// if so, we don't need to change anything
-		if user.Node.IpAddr != myIpAddr || true{
+		if user.Node.IpAddr != myIpAddr{
 			
 			// otherwise, create a new nodeId
 			user.Node.NodeId = Sha1(myIpAddr)
