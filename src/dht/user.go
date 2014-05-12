@@ -20,8 +20,11 @@ type User struct {
 	MessageHistory map[string][]*SendMessageArgs // username => messages we've gotten so far
 	PendingMessages map[string][]*SendMessageArgs // username => slice of pending messages to apply
 	ReceivedMessageIdentifiers map[int64]bool // messageIdentifier (int64) => true if seen messageIdentifier before
-	//Notifications map[string]chan *SendMessageArgs
+	notifications chan *SendMessageArgs
 	dead bool
+	
+	lastSeenMap map[string]time.Time
+	Current string // the current ser we're chatting with
 }
 
 const PEERCHAT_USERDATA_DIR = "/tmp"
@@ -36,6 +39,10 @@ func UsernameToPath(username string) string {
 		all platforms.
 	*/
 	return PEERCHAT_USERDATA_DIR + "/" + username + ".gob"
+}
+
+func (user *User) GetNotificationsChannel() chan *SendMessageArgs {
+	return user.notifications
 }
 
 func (user *User) GetMessagesFrom(other *User) []*SendMessageArgs {
@@ -183,10 +190,11 @@ func MakeUser(username string, ipAddr string) *User{
 	emptyPendingMessages := make(map[string][]*SendMessageArgs)
 	history := make(map[string][]*SendMessageArgs)
 	receivedMessageIdentifiers := make(map[int64]bool)
-	//notifications := make(map[string]chan *SendMessageArgs)
+	notifications := make(chan *SendMessageArgs, 100000)
+	lastSeenMap := make(map[string]time.Time)
 	
 	node := MakeNode(username, ipAddr)
-	user := &User{Node: node, Name: username, PendingMessages: emptyPendingMessages, MessageHistory: history, ReceivedMessageIdentifiers: receivedMessageIdentifiers } //, Notifications: notifications}
+	user := &User{Node: node, Name: username, PendingMessages: emptyPendingMessages, MessageHistory: history, ReceivedMessageIdentifiers: receivedMessageIdentifiers, notifications: notifications, Current: "", lastSeenMap: lastSeenMap}
 	return user
 }
 
@@ -270,12 +278,7 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 			user.ReceivedMessageIdentifiers[args.MessageIdentifier] = true
 			
 			// then notify the UI
-			/*
-			if _, ok := user.Notifications[args.FromUsername]; !ok {
-				user.Notifications[args.FromUsername] = make(chan *SendMessageArgs, 10000)
-			}
-			user.Notifications[args.FromUsername] <- args
-			*/
+			user.notifications <- args
 			
 		} else {
 			Print(UserTag, "%s recieved a previously seen message meant for me! Disregarding: %s, from %s at %v", user.Name, args.Content, args.FromUsername, args.Timestamp)
@@ -422,10 +425,23 @@ func (user *User) IsOnline(username string) bool{
 	return ip != "" && user.CheckStatus(ip) == Online
 }
 
-func (user *User) AreNewMessagesFrom(other string, mostRecent time.Time) (bool, []*SendMessageArgs) {
+func (user *User) UpdateCurrentPeer(peer string) {
+	user.mu.Lock()
+	defer user.mu.Unlock()
+	user.Current = peer
+}
+
+func (user *User) AreNewMessagesFrom(other string) (bool, []*SendMessageArgs) {
+	
+	user.mu.Lock()
+	defer user.mu.Unlock()
 	
 	areNew := false
 	newMessages := make([]*SendMessageArgs, 0)
+	mostRecent, _ := time.Parse("2000-01-01 15:23", "1900-01-01 00:00")
+	if recent, ok := user.lastSeenMap[other]; ok {
+		mostRecent = recent
+	}
 	
 	// get messages in this conversation, and traverse
 	// messages in the conversation in order of timing
@@ -433,6 +449,8 @@ func (user *User) AreNewMessagesFrom(other string, mostRecent time.Time) (bool, 
 	sortutil.AscByField(messages, "Timestamp")
 	for _, message := range messages {
 		stamp := message.Timestamp
+		
+		fmt.Printf("\r from %s to %s: %v", message.FromUsername, message.ToUsername, message)
 		
 		// http://golang.org/src/pkg/time/time.go?s=2447:2479#L50
 		if stamp.After(mostRecent) {
@@ -442,6 +460,11 @@ func (user *User) AreNewMessagesFrom(other string, mostRecent time.Time) (bool, 
 		if areNew {
 			newMessages = append(newMessages, message)
 		}
+	}
+	
+	// update the most recent to be the last one we've seen
+	if len(messages) > 0 {
+		user.lastSeenMap[other] = messages[len(messages) - 1].Timestamp
 	}
 	
 	return areNew, newMessages

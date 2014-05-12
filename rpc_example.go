@@ -82,23 +82,24 @@ func startChat() {
     // prompt them to chat
     fmt.Printf("Connected as user: %+v\n", user)
     
-    // never ending loop
+    // update loop
+    go func() {
+    	notifications := user.GetNotificationsChannel()
+    	for {
+	    	<- notifications
+	    	paint(user)
+	    }
+    }()
+    
+    // input loop
     peer := ""
-    newPeer := ""
     for {
-    	
     	// State 1) get a user to chat with
     	if peer == "" {
     		fmt.Printf("User to chat with: ")
-    		newPeer = input(reader)
-    		
-    		// verify this user is online
-    		if ! user.IsOnline(newPeer) {
-    			continue
-    		}
-    		
-    		// if they are, set peer to new peer
-    		peer = newPeer
+    		peer = input(reader)
+    		fmt.Printf("Starting to talk to: %s\n", peer)
+	    	user.UpdateCurrentPeer(peer)
     		fmt.Printf("%s> ", peer)
     	
     	// State 2) continue chatting
@@ -112,18 +113,9 @@ func startChat() {
 	    	
 	    	} else if text[0] == 92 {
 	    		// switching users to chat with
-	    		newPeer = text[1:]
-	    		
-	    		// verify this user `newPeer` is online
-	    		fmt.Printf("Attempting to connect to %s...\n", newPeer)
-	    		if ! user.IsOnline(newPeer) {
-	    			fmt.Printf("Attempting to connect to %s...\n", newPeer)
-	    			continue
-				}
-	    		
-	    		// if they are, set peer to new peer
-	    		peer = newPeer
+	    		peer = text[1:]
 	    		fmt.Printf("Swtiching to talk to: %s\n", peer)
+	    		user.UpdateCurrentPeer(peer)
 	    		fmt.Printf("%s> ", peer)
 	    		
 	    	} else if text == "exit" {
@@ -133,12 +125,54 @@ func startChat() {
 	    		
 	    	} else {
 	    		// send the message!
-	    		user.SendMessage(peer, text)
-	    		
-	    		// maybe some indication of whether they are 
-	    		// offline and that the message will be sent later?
-	    		// ...
+	    		user.SendMessage(user.Current, text)
+	    		paint(user)
 	    	}
 	    }
     }
+    
+}
+
+func paint(user *dht.User) {
+
+	// clear space
+	for j := 1; j < 100; j++ {
+		fmt.Printf("\r                                     \n")
+	}
+	
+	// new messages?
+	usersWithPendingMessages := make([]string, 0)
+	for peer, _ := range user.MessageHistory {
+		areNew, _ := user.AreNewMessagesFrom(peer)
+		if areNew {
+			usersWithPendingMessages = append(usersWithPendingMessages, peer)
+		}
+	}
+	
+	// print users with pending messages
+	for _, peer := range usersWithPendingMessages {
+		fmt.Printf("\rNew message(s) from `%s`!                    \n", peer)
+	}
+	fmt.Printf("\r                                     \n")
+	fmt.Printf("\r                                     \n")
+	fmt.Printf("\r=========================================\n")
+	
+	// are we current chatting?
+	if user.Current != "" {
+		fmt.Printf("\rConversation with `%s`:                                      \n", user.Current)
+		fmt.Printf("\r                                     \n")
+		
+		_, newMessages := user.AreNewMessagesFrom(user.Current)
+		fmt.Printf("\rfrom %s, %v                              \n", user.Current, newMessages)
+		min := 10
+		if len(newMessages) < min {
+			min = len(newMessages)
+		}
+		for _, msg := range newMessages[:min] {
+			fmt.Printf("\r%s> %s                                      \n", msg.FromUsername, msg.Content)
+		}
+	}
+	
+	fmt.Printf("\r=========================================\n")
+	fmt.Printf("\rme> ")
 }
