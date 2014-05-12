@@ -12,8 +12,8 @@ import "os"
 // Configurable constants
 const (
 	IDLen = 64
-	K = 15
-	Alpha = 3
+	K = 7
+	Alpha = 10
 )
 
 const (
@@ -191,8 +191,10 @@ func appendToCsv(filename, text string) {
 // the reply's contents are only valid if call() returned true.
 func call(srv string, rpcname string, args interface{}, reply interface{}) bool {
 
+	// collect data
 	text := fmt.Sprintf("%s, %d, %d, %d\n", rpcname, time.Now().Unix(), K, Alpha)
-	appendToCsv("run.csv", text)
+	filename := fmt.Sprintf("/Users/will/Code/Go/peerchat/writeup/plots/k-%d-a-%d.csv", K, Alpha)
+	appendToCsv(filename, text)
 
 	client, errx := rpc.Dial("tcp", srv)
 	if errx != nil {
