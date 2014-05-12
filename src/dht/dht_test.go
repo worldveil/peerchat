@@ -429,6 +429,7 @@ func TestOfflineChat(t* testing.T) {
 	time.Sleep(time.Second)
 	assertEqual(t, newUser.MessageHistory["1"][0].Content, "hello")
 	newUser.Logoff()
+	time.Sleep(time.Second)
 }
 
 //receiver goes offline, then sender goes offline, then receiver comes back- should get message
@@ -438,7 +439,7 @@ func TestDualOfflineChat(t* testing.T) {
 
     size := 10
     users := registerMany(size)
-    // defer killAll(users)
+    defer killAll(users)
     user0 := users[0]
     user1 := users[1]
 	oldip := user0.Node.IpAddr
