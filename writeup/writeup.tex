@@ -42,19 +42,17 @@ What we today know as the "internet" was started as a US DARPA military project,
 
 \section{Introduction}
 
-\textit{Peerchat} is a distributed, P2P chat system based on the Kademlia DHT \cite{Maymounkov02} system.
+\textit{Peerchat} is a distributed, P2P chat system based on the Kademlia DHT \cite{Maymounkov02} system which adapts Kamdelia to support persistence of users over different IP addresses using the same disk, and a distributed user directory with no central server. \\
 
-In Peerchat, each client, or user, creates a Kademlia node with a 64 int Node ID created from the hash of its IP address. Users find each other by storing a username -> Ip Address mapping in the distributed hash table (DHT). It does so by storing this map at the nearest K closest nodes to the hash of the username. Users call PeerChat's FindUser(username) API, which returns the IP address. Using Kademlia ensures that user?s find each other using at most log(n) hops, where n is the number of nodes (assuming the routing tables are filled in each bucket). 
+To guarantee no central dependencies, Peerchat requires that nodes bootstrap with an explicit IP address of a peer in the Peerchat network in order to be introduced into the routing table and is parameterized by the standard $k$ and $\alpha$ Kademlia parameters. \\
 
-A user tries to send a message directly, using a background process that keeps sending pending messages until a node replies. In the case of failure, a node also sends the message to the K nearest nodes around the node, which add the message to their background queues. In this way, if the original sender logs out, and the recipient logs back in, the recipient can still receive the message. We call this functionality offline chat.
-
-We implemented two main clerks - Users and Nodes. A user contains the API which our Client code uses directly. A user has a username, an Ip address, a message history etc. A user actually sends messages to another user. It also has a pointer to a Node. In this way, a user uses kademlia to find other users's IP addresses and to send offline messages.
-
-A node is a Kademlia node as described in the protocol. It is a standalone system which implements it?s 4 main functions: StoreUser, FindNode, FindUser and Ping. It 
+We implemented two main entities for each Peerchat node: \textit{User} and \textit{Node}. This separation ensures that the DHT functionality is separated from the chat protocol. 
 
 \section{Background and Related Work}
 
-A very similar effort is BitTorrent Chat \cite{?}. 
+A very similar effort is BitTorrent Chat \cite{?}, which seeks to leverage the BitTorrent network to also also for personal, anonymous, decentralized communication. The effort has generated excitement due to the already massive user base of BitTorrent, though to date has not been released, nor is planned to be released as open-source. \\
+
+We believe that a truly distributed chat system must be open-source in order to gain acceptance and ensure rigorous third-party audits. Though Peerchat in its current configuration is not secure, we feel that both a starting point and a commitment to open-source is important in a P2P chat client. 
 
 \section{System}
 
@@ -62,22 +60,20 @@ Below is a diagram of a single Peerchat node.
 
 \includegraphics[scale=0.5]{peerchat}
 
-The system is parameterized by the normal Kademlia settings of $k$ and $\alpha$, however has a number of marked differences to make it adaptable to a system where users must persist by their usernames when connecting on different IP addresses (though not different hard disks). 
-
-A Peerchat user consists of a number of different routines all working together. A short description of their function is below:
+A Peerchat user consists of a number of different routines all working together. A short description of their function is below: \\
 
 Separate threads (goroutines):
 \begin{enumerate}
-	\item Message Queuing \\
-	The message queuing routine is what acts when a user submits a message. The user?s node sends the message to a queue where it is stored until the Message Sender can deal with the message. Additionally, messages that are being forwarded on in the case of offline messaging are also ?piggybacked? into other user?s pending messages queue, and await being forwarded to other nodes. 
+	\item \textit{Message Queuing} \\
+	The message queuing routine is what acts when a user submits a message. The user's node sends the message to a queue where it is stored until the Message Sender can deal with the message. Additionally, messages that are being forwarded on in the case of offline messaging are also "piggybacked" into other user's pending messages queue, and await being forwarded to other nodes. 
 
-	\item Message Sender \\
+	\item \textit{Message Sender} \\
 	The Message Sending goroutine iterates through the list of recipients with messages to be sent in the User?s queues.  Next, using the DHT, the Message Sender attempts to locate and ping the recipient peer. If the peer is online, the message is sent directly through TCP using an RPC call. If the peer is offline, the Message is sent to the K closest neighbors in the DHT by the XOR metric to increase the chances of message delivery when the recipient happens to come online. 
 
-	\item Connection Acceptor \\
+	\item \textit{Connection Acceptor} \\
 The connection acceptor is the Peerchat routine that accepts RPC requests and spins off new goroutines to service them. 
 
-	\item Periodic Backup \\
+	\item \textit{Periodic Backup} \\
 	As well as backing up the system after each received message, Peerchat also backs up it?s message history, routing table, received and seen messages maps, and connection information every 30 seconds. This covers for unpopular nodes who are more often message ?forwarders? than receivers while avoiding spurious serializations to disk. 
 \end{enumerate}
 
@@ -87,7 +83,13 @@ We persist nodes' state by periodically serializing a user's routing table and m
 
 \subsection{Offline Usage}
 
+Peerchat assumes online usage, but once a message has failed to send, falls back onto a K closest neighbors forwarding strategy. \\
+
+Upon failure, a node also sends the message to the K nearest nodes around the node, which add the message to their background pending message queues, and attempt in their normal fashion to send them along, keeping the to/from message headers intact. This piggybacked forwarding strategy increases the chances of avoiding a situation in which both nodes continue to miss each other being online, and keeps the conversation going. 
+
 \section{Demonstration}
+
+In addition to a battery of unit tests and simulations, we also present an analysis of the Peerchat's efficiency and and performance under different parameterizations of the system. 
 
 \subsection{User Registration}
 \subsection{User Login}
@@ -96,7 +98,9 @@ We persist nodes' state by periodically serializing a user's routing table and m
 
 \section{Future Work}
 
-Security?
+Peerchat has many hole that need to be filled before it becomes widely used or trusted. 
+
+
 
 \section{Conclusion}
 
@@ -110,5 +114,14 @@ Peerchat is the best, blah, blah.
    \textit{Peer-to-Peer Systems. Springer Berlin Heidelberg}, 2002. 53-65
  
 \end{thebibliography}
+
+A user contains the API which our Client code uses directly. A user has a username, an Ip address, a message history etc. A user actually sends messages to another user. It also has a pointer to a Node. In this way, a user uses kademlia to find other users's IP addresses and to send offline messages.
+
+In Peerchat, each client, or user, creates a Kademlia node with a 64 int Node ID created from the hash of its IP address. Users find each other by storing a username -> Ip Address mapping in the distributed hash table (DHT). It does so by storing this map at the nearest K closest nodes to the hash of the username. Users call PeerChat's FindUser(username) API, which returns the IP address. Using Kademlia ensures that user?s find each other using at most log(n) hops, where n is the number of nodes (assuming the routing tables are filled in each bucket). 
+
+A user tries to send a message directly, using a background process that keeps sending pending messages until a node replies. In the case of failure, a node also sends the message to the K nearest nodes around the node, which add the message to their background queues. In this way, if the original sender logs out, and the recipient logs back in, the recipient can still receive the message. We call this functionality offline chat.
+
+A node is a Kademlia node as described in the protocol. It is a standalone system which implements it?s 4 main functions: StoreUser, FindNode, FindUser and Ping. It 
+
 
 \end {document}
