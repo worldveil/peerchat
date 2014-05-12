@@ -4,7 +4,7 @@
 \usepackage{doc}
 \usepackage{graphicx}
 
-\title{Peerchat: a Distributed, P2P Communication Network based on Kademlia}
+\title{Peerchat: a Distributed, P2P \\ Communication Network based on Kademlia}
 \author{
   Forrest Pieper\\
   Will Drevo\\
@@ -19,15 +19,13 @@
 \section{Motivation}
 \label{Motivation}
 
-Most popular online chat systems rely on a centralized authority to connect users. While these services often have very high up-time, there is no guarantee that the service providers will continue to offer their product. Additionally, these service providers can trivially gather personal data such which users chat with each other and at what frequency. 
+Most popular online chat systems rely on a centralized authority to connect users. While these services often have very high up-time, there is no guarantee that the service providers will continue to offer their product. Additionally, these service providers can trivially gather personal data such which users chat with each other and at what frequency. \\
 
 Peerchat is aimed to address these problems by providing a completely decentralized chat system that will remain active as long as there are individuals using the system. No individual person or organization has the ability to take the service offline. Peerchat also makes it much more difficult to track user activity since no single server (or group of servers) is likely to process every request.  
 
-%What we today know as the "internet" was started as a US DARPA military project, a network of nodes distributed geographically across the US in order to ensure fault tolerance in the case of a nuclear attack \cite{?}. Today, ironically, many feel the internet has become too centralized. \\
-
 \section{Introduction}
 
-\textit{Peerchat} is a distributed, P2P chat system based on the Kademlia DHT \cite{Maymounkov02} system which adapts Kamdelia to support persistence of users over different IP addresses using the same disk, and a distributed user directory with no central server. \\
+\textit{Peerchat} is a distributed, P2P chat system based on the Kademlia DHT \cite{Maymounkov02} system which adapts Kamdelia to support persistence of users over different IP addresses, and a distributed user directory with no central server. \\
 
 To guarantee no central dependencies, Peerchat requires that nodes bootstrap with an explicit IP address of a peer in the Peerchat network in order to be introduced into the routing table and is parameterized by the standard $k$ and $\alpha$ Kademlia parameters. \\
 
