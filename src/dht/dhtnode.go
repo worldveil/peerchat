@@ -15,7 +15,7 @@ type DhtNode struct {
 	IpAddr string
 	NodeId ID // sha1(ip)
 	RoutingTable [IDLen][]RoutingEntry // map from NodeId to IP- a IDLen X K matrix
-	kv map[ID]string // map from username to IP
+	Kv map[ID]string // map from username to IP
 }
 
 //this gets called when another node is contacting this node through any API method!
@@ -101,7 +101,7 @@ func (node *DhtNode) getClosest(target_result_len int, targetNodeId ID) []Routin
 func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply) error {
 	Print(HandlerTag, "Node %v StoreUserHandler called by %v. kv[%v]=%v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.AnnouncedUserId), args.QueryingIpAddr)
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
-	node.kv[args.AnnouncedUserId] = args.AnnouncedIpAddr
+	node.Kv[args.AnnouncedUserId] = args.AnnouncedIpAddr
 	return nil
 }
 
@@ -109,7 +109,7 @@ func (node *DhtNode) StoreUserHandler(args *StoreUserArgs, reply *StoreUserReply
 // tells the entire network: I'm a node and I'm online
 func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 	//put myself in routing table
-	node.kv[Sha1(username)] = ipAddr
+	node.Kv[Sha1(username)] = ipAddr
 
 	Print(ApiTag, "Node %v calling AnnounceUser, username: %v, ipAddr: %v", Short(node.NodeId), username, ipAddr)
 	// does lookup(node.NodeId) in order to populate other node's routing table with my info
@@ -138,11 +138,11 @@ func (node *DhtNode) FindNodeHandler(args *FindIdArgs, reply *FindIdReply) error
 // FindUser RPC handlers
 //checks if user is in, if not, return false
 func (node *DhtNode) FindUserHandler(args *FindIdArgs, reply *FindIdReply) error {
-	Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. My kv is %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId), node.kv)
+	Print(HandlerTag, "Node %v FindUserHandler called by %v, TargetId: %v. My kv is %v", Short(node.NodeId), Short(args.QueryingNodeId), Short(args.TargetId), node.Kv)
 	reply.QueriedNodeId = node.NodeId
 	reply.QueriedIpAddr = node.IpAddr
 	node.updateRoutingTable(RoutingEntry{NodeId: args.QueryingNodeId, IpAddr: args.QueryingIpAddr})
-	ipAddr, exists := node.kv[args.TargetId]
+	ipAddr, exists := node.Kv[args.TargetId]
 	if exists {
 		reply.TargetIpAddr = ipAddr
 		Print(HandlerTag, "Node %v FindUserHandler (finished) called by %v, TargetId: %v. Target user is in my map! returning user", Short(node.NodeId), Short(args.QueryingNodeId), args.TargetId)
@@ -269,7 +269,7 @@ func (node *DhtNode) FindUser(username string) string {
 	Print(ApiTag, "Node %v calling FindUser on %v", Short(node.NodeId), username)
 	targetId := Sha1(username)
 	//check if have locally
-	ipAddr, exists := node.kv[targetId]
+	ipAddr, exists := node.Kv[targetId]
 	if exists {
 		return ipAddr
 	} 
@@ -344,7 +344,7 @@ func MakeNode(username string, myIpAddr string) *DhtNode{
 		Creates a DHTNode with a given username, ip address, and routing table. 
 	*/
 	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr)}
-	node.kv = make(map[ID]string)
+	node.Kv = make(map[ID]string)
 	node.MakeEmptyRoutingTable()
 	
 	Print(StartTag, "DHT Node created for username=%s with ip=%s, moving to gob setup...", username, myIpAddr)	
