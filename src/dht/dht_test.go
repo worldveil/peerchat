@@ -371,7 +371,7 @@ func switchIp(users []*User, startPort int) []*User{
 **  lookup the other users
 */
 func TestPersistance(t* testing.T) {
-	t.Skip()
+//	t.Skip()
 	fmt.Println("Running TestPersistance")
 	defer fmt.Println("Passed!")
 
