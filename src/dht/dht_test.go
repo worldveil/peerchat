@@ -38,6 +38,16 @@ func isEqualRE(entry1 []RoutingEntry, entry2 []RoutingEntry) bool{
 	return true
 }
 
+func sliceEqual(a, b [IDLen][]RoutingEntry) bool {
+	for idx, bucketa := range a{
+		bucketb := b[idx]
+		if ! isEqualRE(bucketa, bucketb){
+			return false
+		}
+	}
+	return true
+}
+
 func registerMany(num_users int) []*User{
 	users := make([]*User, num_users)
 
@@ -69,7 +79,9 @@ func killAll(users []*User){
 	time.Sleep(time.Millisecond * 400)
 }
 
-func TestGobbing(t *testing.T) {
+func TestSerialization(t *testing.T) {
+	fmt.Println("Running TestSerialization")
+	defer fmt.Println("passed")
 	
 	port1 := ":4444"
 	port2 := ":5555"
@@ -122,7 +134,12 @@ func TestGobbing(t *testing.T) {
 		assertEqual(t, len(two.PendingMessages[user1.Name]), len(user2.PendingMessages[user1.Name]))
 		assertEqual(t, len(one.ReceivedMessageIdentifiers), len(user1.ReceivedMessageIdentifiers))
 		assertEqual(t, len(two.ReceivedMessageIdentifiers), len(user2.ReceivedMessageIdentifiers))
+		assertEqual(t, sliceEqual(one.Node.RoutingTable, user1.Node.RoutingTable), true)
+		assertEqual(t, sliceEqual(two.Node.RoutingTable, user2.Node.RoutingTable), true)
 	}
+
+	user1.Logoff()
+	user2.Logoff()
 }
 
 /*
@@ -195,7 +212,7 @@ func TestDhtNodeUnit(t *testing.T) {
 */
 func TestBasic(t *testing.T) {
 	fmt.Println("Running TestBasic")
-	
+	defer fmt.Println("passed")
 
 	port1 := ":4444"
 	port2 := ":5555"
@@ -289,6 +306,7 @@ func sendAndCheck(t *testing.T, sender *User, receiver *User) {
 **  to each other
 */
 func TestSends(t *testing.T) {
+	fmt.Println("Running TestSends")
 	size := 5
 	users := registerMany(5)
 	defer killAll(users)
@@ -306,6 +324,8 @@ func TestSends(t *testing.T) {
 **  tell that logged-off users are not online
 */
 func TestSomeLogoffs(t* testing.T) {
+	fmt.Println("Running TestSomeLogoffs")
+	defer fmt.Println("Passed!")
 	size := 10
 	failures := 3
 	users := registerMany(size)
@@ -327,12 +347,13 @@ func TestSomeLogoffs(t* testing.T) {
 
 }
 
-func switchIp(users []*User, startPort int) {
+func switchIp(users []*User, startPort int) []*User{
 	p := startPort
 	for i:=0;i<len(users);i++ {
 		user := users[i]
 		name := user.Name
 		user.Logoff()
+		time.Sleep(time.Second)
 		ipAddr := localIp + ":" + strconv.Itoa(p + 8000)
 		p++
 		newUser := Login(name, ipAddr)
@@ -342,6 +363,7 @@ func switchIp(users []*User, startPort int) {
 	for _, user := range users {
 		user.Node.AnnounceUser(user.Name, user.Node.IpAddr)
 	}
+	return users
 }
 
 /*
@@ -350,20 +372,18 @@ func switchIp(users []*User, startPort int) {
 **  lookup the other users
 */
 func TestPersistance(t* testing.T) {
+	fmt.Println("Running TestPersistance")
+	defer fmt.Println("Passed!")
+
 	users := registerMany(3)
-	user := users[0]
-	fmt.Println(user.Name)
-	users[0].Serialize()
-	sucess, new_user := Deserialize("0")
-	fmt.Println(sucess, new_user.Name)
-	// defer killAll(users)
-	// users[0].Logoff()
-	// Login("0", localIp + ":8000")
-	// newUser := Login("0", localIp + ":8000")
-	// defer killAll([]*User{newUser})
-	time.Sleep(time.Second)
-	// checkLookup(t, newUser, users[1])
-	// checkLookup(t, newUser, users[2])
+	defer killAll(users)
+	users[0].Logoff()
+	time.Sleep(time.Millisecond * 200)
+	newUser := Login("0", localIp + ":8000")
+	defer killAll([]*User{newUser})
+	time.Sleep(time.Millisecond * 200)
+	checkLookup(t, newUser, users[1])
+	checkLookup(t, newUser, users[2])
 }
 
 /*
@@ -372,11 +392,14 @@ func TestPersistance(t* testing.T) {
 **  that user's new address.
 */
 func TestNewIP(t* testing.T) {
+	fmt.Println("Running TestNewIP")
+	defer fmt.Println("Passed!")
+
 	size := 3
 	newIpNum := 1
 	users := registerMany(size)
 	defer killAll(users)
-	switchIp(users[:newIpNum], size+1)
+	users = append(switchIp(users[:newIpNum], size+1), users[newIpNum:]...)
 	time.Sleep(time.Second)
 	for _, olduser := range users[newIpNum:] {
 		for _, newuser := range users[:newIpNum] {
@@ -386,6 +409,9 @@ func TestNewIP(t* testing.T) {
 }
 
 func TestOfflineChat(t* testing.T) {
+	fmt.Println("Running TestOfflineChat")
+	defer fmt.Println("Passed!")
+
     size := 3
     users := registerMany(size)
     defer killAll(users)
@@ -471,6 +497,9 @@ func randomOffAction(t *testing.T, idx int, on_users, off_users []*User) ([]*Use
 **  pairs can look each other up
 */
 func TestRealLife(t* testing.T) {
+	fmt.Println("Running TestRealLife")
+	defer fmt.Println("Passed!")
+
 	size := 30
 	rounds := 5
 	on_users := slowRegisterMany(size, 10)
