@@ -60,7 +60,15 @@ The connection acceptor is the Peerchat routine that accepts RPC requests and sp
 
 \subsection{Persistence}
 
-We persist nodes' state by periodically serializing a user's routing table and messaging log to disk. 
+We persist nodes' state by periodically serializing a user's routing table, messaging log, and other DHT node state to disk.
+When a user logs back in, we check for saved data and reconstruct the node.
+As long as at least one of the nodes in the saved routing table is still online, the user does not have to specifiy a bootstrap node upon login. 
+Otherwise, the user must register their username again and provide a bootstrap node in order to rejoin the system.
+If the user's IP address has not changed, we relaunch the node with the old node ID. 
+If the user has a new IP address, we generate a new node ID and reorganize the routing table.
+This persistence strategy minimizes system disruptions and allows nodes to seamlessly rejoin the network.
+
+
 
 \subsection{Offline Usage}
 
