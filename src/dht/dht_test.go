@@ -394,7 +394,7 @@ func TestNewIP(t* testing.T) {
 	fmt.Println("Running TestNewIP")
 	defer fmt.Println("Passed!")
 
-	size := 3
+	size := 10
 	newIpNum := 1
 	users := registerMany(size)
 	defer killAll(users)
@@ -412,7 +412,7 @@ func TestOfflineChat(t* testing.T) {
 	fmt.Println("Running TestOfflineChat")
 	defer fmt.Println("Passed!")
 
-    size := 3
+    size := 10
     users := registerMany(size)
     defer killAll(users)
 	oldip := users[0].Node.IpAddr
@@ -429,7 +429,7 @@ func TestDualOfflineChat(t* testing.T) {
 	fmt.Println("Running TestOfflineChat")
 	defer fmt.Println("Passed!")
 
-    size := 3
+    size := 10
     users := registerMany(size)
     // defer killAll(users)
     user0 := users[0]
@@ -439,9 +439,9 @@ func TestDualOfflineChat(t* testing.T) {
 	user1.SendMessage("0", "hello")
 	time.Sleep(time.Second)
 	user1.Logoff()
-	newUser := Login("0", oldip)
+	user0 = Login("0", oldip)
 	time.Sleep(time.Second)
-	assertEqual(t, newUser.MessageHistory["1"][0].Content, "hello")
+	assertEqual(t, user0.MessageHistory["1"][0].Content, "hello")
 } 
 
 func slowRegisterMany(n int, t int) []*User{

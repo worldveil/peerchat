@@ -4,7 +4,6 @@ import "math"
 import "github.com/pmylund/sortutil"
 import "net/rpc"
 import "encoding/gob"
-import "fmt"
 
 const ApiTag = "API"
 const DHTHelperTag = "HELPER"
@@ -194,7 +193,6 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 			}
 			continue
 		}
-		fmt.Println(node.NodeId,"queried node id is ",  reply.QueriedNodeId)
 		Print(DHTHelperTag, "Node %v received Find%v response from %v. Response is %v, %v", Short(node.NodeId), targetType, Short(reply.QueriedNodeId), reply.TryNodes, reply.TargetIpAddr)
 		//update our routing table with queriedNodeId
 		node.updateRoutingTable(RoutingEntry{NodeId: reply.QueriedNodeId, IpAddr: reply.QueriedIpAddr})

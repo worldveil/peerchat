@@ -113,11 +113,9 @@ func Login(username string, userIpAddr string) *User {
 	
 	Print(UserTag, "Attempting to log on with username=%s and ip=%s...", username, userIpAddr) 
 	user := loadUser(username, userIpAddr)
-	fmt.Println(user.Node.NodeId)
 	if user != nil {
 		user.setupUser()
 		time.Sleep(10*time.Millisecond)
-		fmt.Println(user.Node.NodeId)
 		user.Node.AnnounceUser(username, userIpAddr)
 		go user.startSender()
 		go user.startPersistor()
@@ -177,13 +175,11 @@ func (user *User) setupUser(){
 				conn.Close()
 			}
 			if err != nil && ! user.dead{
-				fmt.Println(err)
 				user.Logoff()
 			}			
 		}
 		
 		Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", user.Node.IpAddr)
-		fmt.Println("Server shutting down")
 	}()
 }
 
