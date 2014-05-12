@@ -60,15 +60,12 @@ The connection acceptor is the Peerchat routine that accepts RPC requests and sp
 
 \subsection{Persistence}
 
-We persist nodes' state by periodically serializing a user's routing table, messaging log, and other DHT node state to disk.
-When a user logs back in, we check for saved data and reconstruct the node.
-As long as at least one of the nodes in the saved routing table is still online, the user does not have to specifiy a bootstrap node upon login. 
-Otherwise, the user must register their username again and provide a bootstrap node in order to rejoin the system.
-If the user's IP address has not changed, we relaunch the node with the old node ID. 
+We persist nodes' state by periodically serializing a user's routing table, messaging log, and other DHT node state to disk. When a user logs back in, we check for saved data and reconstruct the node. \\
+
+As long as at least one of the nodes in the saved routing table is still online, the user does not have to specifiy a bootstrap node upon login.  Otherwise, the user must register their username again and provide a bootstrap node in order to rejoin the system. If the user's IP address has not changed, we relaunch the node with the old node ID. \\
+
 If the user has a new IP address, we generate a new node ID and reorganize the routing table.
 This persistence strategy minimizes system disruptions and allows nodes to seamlessly rejoin the network.
-
-
 
 \subsection{Offline Usage}
 
@@ -76,18 +73,24 @@ Peerchat assumes online usage, but once a message has failed to send, falls back
 
 Upon failure, a node also sends the message to the K nearest nodes around the node, which add the message to their background pending message queues, and attempt in their normal fashion to send them along, keeping the to/from message headers intact. This piggybacked forwarding strategy increases the chances of avoiding a situation in which both nodes continue to miss each other being online, and keeps the conversation going. 
 
-\section{Demonstration}
+\subsection{User Registration}
+
+Users register when they first use Peerchat. They do this through the RegisterAndLogin function, which takes a username, ip address and ip address of a bootstrap node. In order to connect to an existing Kademlia network, the ip address of a bootstrap node is necessary. \\
+
+Once Peerchat verifies that the bootstrap node is valid, it will create a Kademlia node, and start the Kademlia bootstrapping process (by putting the bootstrap node in it's own routing table, calling FindNode on itself to put itself in other's routing table, especially nearby nodes, and by putting its own username in the distributed hash table as well). This is done with the AnncouncePeer Kademlia API call. Once a node is registered, has created a Kademlia node, has created the infrastructure needed (data structures etc), and has bootstrapped its own and others routing tables, it it registered, logged in and in the network. \\
+
+\subsection{User Login}
+
+User login is a similar process to registration, except the username is known to have been in the Peerchat network at some point. As users will most likely login from the recent IP, there is a good chance that we need to do little work to get the node up and running. We must first load the user's state from persisted disk, including IP and routing table. If the IP address is the same as the last IP address login, we can keep the same node and routing table. Our routing table will be mostly the same because our XOR metric has not changed as our IP address (and hence, nodeID) has not changed. It may be stale, but the typical Kademlia protocol naturally boots out stale values. \\
+
+If our IP address has changed, however, we must create a new Kademlia node with the hash of the IP as our new node ID. Although our distance from nodes has changed, we can still leverage the knowledge of old nodes by pinging them, and adding them to the routing table (in a different Kbucket)  if they are still online. \\
+
+Finally, we must announce ourselves using the same bootstrapping process described above. If our IP address has changed, most of the stale username -> ip values will refresh because of Kademlia. If a stale value remains, and a sending node thinks a receiving node is in a different, old IP address, the receiving node will still receive the messages because of our offline chat protocol. Our tests reflect this. 
+
+\section{Demonstrations}
 
 In addition to a battery of unit tests and simulations, we also present an analysis of the Peerchat's efficiency and and performance under different parameterizations of the system. 
 
-\subsection{User Registration}
-Users register when they first use peerchat. They do this through the RegisterAndLogin function, which takes a username, ip address and ip address of a bootstrap node. In order to connect to an existing Kademlia network, the ip address of a bootstrap node is necessary. Once peerchat verifies that the bootstrap node is valid, it will create a Kademlia node, and start the kademlia bootstrapping process (by putting the bootstrap node in it's own routing table, calling FindNode on itself to put itself in other's routing table, especially nearby nodes, and by putting its own username in the distributed hash table as well). This is done with the AnncouncePeer Kademlia API call. Once a node is registered, has created a kademlia node, has created the infrastructure needed (data structures etc), and has bootstrapped its own and others routing tables, it it registered, logged in and in the network.
-\subsection{User Login}
-User login is a similiar process to registration, except the username is known to have been in the peerchat network at some point. As users will most likely login from the recent IP, there is a good chance that we need to do little work to get the node up and running. We must first load the user's state from persisted disk, including IP and routing table. If the IP address is the same as the last IP address login, we can keep the same node and routing table. Our routing table will be mostly the same because our XOR metric has not changed as our IP address (and hence, nodeID) has not changed. It may be stale, but the typical Kademlia protocol naturally boots out stale values. 
-
-If our IP address has changed, however, we must create a new Kademlia node with the hash of the IP as our new node ID. Although our distance from nodes has changed, we can still leverage the knowledge of old nodes by pinging them, and adding them to the routing table (in a different Kbucket)  if they are still online. Finally, we must announce ourselves using the same bootstrapping process described above. If our IP address has changed, most of the stale username -> ip values will refresh because of kademlia. If a stale value remains, and a sending node thinks a receiving node is in a different, old IP address, the receiving node will still receive the messages because of our offline chat protocol. Our tests reflect this. 
-
-\subsection{Correctness Testing}
 \subsection{Performance Testing}
 
 We tested the Peerchat system under a exponentially increasing size of the network $n$ hosted on a single machine. \\
@@ -112,12 +115,23 @@ Upon running the Peerchat script, the user is prompted to enter their username. 
 
 Peerchat has many hole that need to be filled before it becomes widely used or trusted. 
 
-Security
-UI
+Areas of future work:
+\begin{enumerate}
+	\item \textit{Security} \\
+	We believe that Peerchat is fundamentally ready to support a public / private key architecture. While beyond the scope of this project, the ability to encrypt messages meant for other users would make the content of messages secret, though due to the nature of forwarding, which nodes talk to each other would not be.  
+
+	\item \textit{User Interface} \\
+	Peerchat's simple user interface is definitely in need of a makeover. Even in the terminal, adapting a good $ncurses$ module from $C$ into golang would make for a more powerful and expressive interface, however a simple Qt or even web-based application would be much more convienient. 
+	
+\end{enumerate}
 
 \section{Conclusion}
 
-Peerchat is the best, blah, blah.
+In conclusion, we find Peerchat to be a solid implementation of a DHT using the Kademlia protocol which is quite performant and correct under large loads. \\
+
+Peerchat needs many improvements in order to attain wide usage, security, and absolute correctness, but we believe that ultimately open-source, P2P solutions are the way forward in a time of increasing centralization and government control. \\
+
+It is our hope that efforts like Peerchat will inspire others to work on similar projects and provide a solid base for P2P communication development. 
 
 \begin{thebibliography}{99}
   \bibitem{Maymounkov02}
