@@ -7,6 +7,7 @@ import "fmt"
 import "strconv"
 import "crypto/rand"
 import "math/big"
+import "os"
 
 // Configurable constants
 const (
@@ -167,6 +168,18 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 	return append(slice[:index], append(slice[index + 1:], slice[index])...)
 }
 
+func appendToCsv(filename, text string) {
+	f, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+	    panic(err)
+	}
+	defer f.Close()
+	
+	if _, err = f.WriteString(text); err != nil {
+	    panic(err)
+	}
+}
+
 // call() sends an RPC to the rpcname handler on server srv
 // with arguments args, waits for the reply, and leaves the
 // reply in reply. the reply argument should be a pointer
@@ -183,6 +196,10 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 // please don't change this function.
 //
 func call(srv string, rpcname string, args interface{}, reply interface{}) bool {
+
+	text := fmt.Sprintf("%s, %d, %d, %d\n", rpcname, time.Now().Unix(), K, Alpha)
+	appendToCsv("run.csv", text)
+	
 	client, errx := rpc.Dial("tcp", srv)
 	if errx != nil {
 		return false
