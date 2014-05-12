@@ -274,7 +274,7 @@ func sendAndCheck(t *testing.T, sender *User, receiver *User) {
 	msg := "message " + strconv.Itoa(rand.Int() % 1000)
 	idx := len(receiver.MessageHistory[sender.name])
 	sender.SendMessage(receiver.name, msg)
-	time.Sleep(time.Second)
+	time.Sleep(time.Millisecond*1000)
 	assertEqual(t, receiver.MessageHistory[sender.name][idx].Content, msg)
 }
 
@@ -435,7 +435,16 @@ func randomOnAction(t *testing.T, idx int, on_users, off_users []*User) ([]*User
 func randomOffAction(t *testing.T, idx int, on_users, off_users []*User) ([]*User, []*User) {
 	val := rand.Int() % 100
 	if val < logonprob {
-		
+		ip := off_users[idx].node.IpAddr
+		if rand.Int() %100 < changeipprob {
+			ip += "0"
+		}
+		newUser := Login(off_users[idx].name,ip)
+		time.Sleep(time.Millisecond * 10)
+		newUser.node.AnnounceUser(newUser.name, ip)
+		time.Sleep(time.Millisecond * 10)
+		on_users = append(on_users, newUser)
+		off_users = append(off_users[:idx], off_users[idx+1:]...)
 	}
 	return on_users, off_users
 }		
@@ -457,6 +466,7 @@ func TestRealLife(t* testing.T) {
 	for r := 0; r<rounds; r++ {
 		for i:=0; i<len(on_users); i++  {
 			on_users, off_users = randomOnAction(t, i, on_users, off_users)
+			on_users, off_users = randomOffAction(t, i, on_users, off_users)
 		}
 		time.Sleep(time.Millisecond * 10)
 	}
