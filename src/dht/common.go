@@ -192,10 +192,12 @@ func appendToCsv(filename, text string) {
 func call(srv string, rpcname string, args interface{}, reply interface{}) bool {
 
 	// collect data
+	/*
 	n := 640
 	text := fmt.Sprintf("%s, %d, %d, %d, %d\n", rpcname, time.Now().Unix(), K, Alpha, n)
 	filename := fmt.Sprintf("/Users/will/Code/Go/peerchat/writeup/plots/SWEEP.csv")
 	appendToCsv(filename, text)
+	*/
 
 	client, errx := rpc.Dial("tcp", srv)
 	if errx != nil {
