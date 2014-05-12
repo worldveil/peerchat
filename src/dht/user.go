@@ -15,11 +15,11 @@ const SendingTag = "SENDING"
 type User struct {
 	l net.Listener
 	mu sync.Mutex
-	node *DhtNode
-	name string
+	Node *DhtNode
+	Name string
 	MessageHistory map[string][]*SendMessageArgs // username => messages we've gotten so far
-	pendingMessages map[string][]*SendMessageArgs // username => slice of pending messages to apply
-	receivedMessageIdentifiers map[int64]bool // messageIdentifier (int64) => true if seen messageIdentifier before
+	PendingMessages map[string][]*SendMessageArgs // username => slice of pending messages to apply
+	ReceivedMessageIdentifiers map[int64]bool // messageIdentifier (int64) => true if seen messageIdentifier before
 	//Notifications map[string]chan *SendMessageArgs
 	dead bool
 }
@@ -38,22 +38,22 @@ func UsernameToPath(username string) string {
 	return PEERCHAT_USERDATA_DIR + "/" + username + ".gob"
 }
 
-func (u *User) GetMessagesFrom(other *User) []*SendMessageArgs {
+func (user *User) GetMessagesFrom(other *User) []*SendMessageArgs {
 	/*
 		Returns the list of SendMessageArgs
 	*/
-	if _, ok := u.MessageHistory[other.name]; ok {
-		return u.MessageHistory[other.name]
+	if _, ok := user.MessageHistory[other.Name]; ok {
+		return user.MessageHistory[other.Name]
 	}
 	return make([]*SendMessageArgs, 0)
 }
 
-func (u *User) Serialize() {
+func (user *User) Serialize() {
 	/*
 		Serializes this User struct.
 	*/
-	path := UsernameToPath(u.name)
-	Print(UserTag, "Serializing path=%s for User %+v", path, u)
+	path := UsernameToPath(user.Name)
+	Print(UserTag, "Serializing path=%s for User %+v", path, user)
 	encodeFile, err := os.Create(path)
 	if err != nil {
 		panic(err)
@@ -61,7 +61,7 @@ func (u *User) Serialize() {
 
 	// encode and write to file
 	encoder := gob.NewEncoder(encodeFile)
-	if err := encoder.Encode(u); err != nil {
+	if err := encoder.Encode(user); err != nil {
 		panic(err)
 	}
 	encodeFile.Close()
@@ -109,7 +109,7 @@ func Login(username string, userIpAddr string) *User {
 	if user != nil {
 		user.setupUser()
 		time.Sleep(10*time.Millisecond)
-		user.node.AnnounceUser(username, userIpAddr)
+		user.Node.AnnounceUser(username, userIpAddr)
 		go user.startSender()
 		go user.startPersistor()
 	}
@@ -133,47 +133,47 @@ func RegisterAndLogin(username string, userIpAddr string, bootstrapIpAddr string
 	}
 
 	time.Sleep(10*time.Millisecond)
-	user.node.AnnounceUser(username, userIpAddr)
+	user.Node.AnnounceUser(username, userIpAddr)
 	go user.startSender()
 	go user.startPersistor()
 	return user
 }
 
-func (u *User) Logoff() {
-	u.dead = true
-	u.l.Close()
+func (user *User) Logoff() {
+	user.dead = true
+	user.l.Close()
 }
 
-func (u *User) setupUser(){
-	rpcs := u.node.SetupNode()
-	rpcs.Register(u)
+func (user *User) setupUser(){
+	rpcs := user.Node.SetupNode()
+	rpcs.Register(user)
 
 	// set up a connection listener
-	l, e := net.Listen("tcp", u.node.IpAddr)
+	l, e := net.Listen("tcp", user.Node.IpAddr)
 	if e != nil {
 		log.Fatal("listen error: ", e)
 	}
-	u.l = l
+	user.l = l
 	
 	// spin off go routine to listen for connections
 	go func() {
-		Print(StartTag, "Connection listener for %s starting...", u.node.IpAddr)
-		for u.dead == false{
+		Print(StartTag, "Connection listener for %s starting...", user.Node.IpAddr)
+		for user.dead == false{
 			conn, err := l.Accept()
-			if err == nil && ! u.dead{
+			if err == nil && ! user.dead{
 				// spin off goroutine to handle
 				// RPC requests from other nodes
 				go rpcs.ServeConn(conn)
 			} else if err == nil {
 				conn.Close()
 			}
-			if err != nil && ! u.dead{
+			if err != nil && ! user.dead{
 				fmt.Println(err)
-				u.Logoff()
+				user.Logoff()
 			}			
 		}
 		
-		Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", u.node.IpAddr)
+		Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", user.Node.IpAddr)
 		fmt.Println("Server shutting down")
 	}()
 }
@@ -186,7 +186,7 @@ func MakeUser(username string, ipAddr string) *User{
 	//notifications := make(map[string]chan *SendMessageArgs)
 	
 	node := MakeNode(username, ipAddr)
-	user := &User{node: node, name: username, pendingMessages: emptyPendingMessages, MessageHistory: history, receivedMessageIdentifiers: receivedMessageIdentifiers } //, Notifications: notifications}
+	user := &User{Node: node, Name: username, PendingMessages: emptyPendingMessages, MessageHistory: history, ReceivedMessageIdentifiers: receivedMessageIdentifiers } //, Notifications: notifications}
 	return user
 }
 
@@ -200,7 +200,7 @@ func loadUser(username, myIpAddr string) *User {
 	
 	// first deserialize the old User struct from disk
 	success, user := Deserialize(username)
-	fmt.Println("got here")
+	fmt.Println("go to load user", success, user)
 	
 	// there was a userfile to load
 	if success {
@@ -209,19 +209,19 @@ func loadUser(username, myIpAddr string) *User {
 	
 		// check and see if ipaddr is the same as the old one
 		// if so, we don't need to change anything
-		if user.node.IpAddr != myIpAddr {
+		if user.Node.IpAddr != myIpAddr {
 			
 			// otherwise, create a new nodeId
-			user.node.NodeId = Sha1(myIpAddr)
+			user.Node.NodeId = Sha1(myIpAddr)
 			
-			Print(UserTag, "IP Address changed to %s, creating new NodeID=%s", myIpAddr, user.node.NodeId)
+			Print(UserTag, "IP Address changed to %s, creating new NodeID=%s", myIpAddr, user.Node.NodeId)
 			
 			// and rearrange the table based on new nodeId
 			// first, get a list of all (nodeId, ipAddr) pairs
 			routingEntries := make([]RoutingEntry, 0)
 			
 			// for each k-buckets row
-			for _, row := range user.node.RoutingTable {
+			for _, row := range user.Node.RoutingTable {
 			
 				// for each RoutingEntry in row
 				for _, entry := range row {
@@ -231,14 +231,14 @@ func loadUser(username, myIpAddr string) *User {
 			
 			// now delete old routing table and replace 
 			// with a new (empty) one
-			user.node.MakeEmptyRoutingTable()
+			user.Node.MakeEmptyRoutingTable()
 			
 			// then, for each pair, call:
 			// updateRoutingTable(nodeId ID, IpAddr string)
 			for _, entry := range routingEntries {
-				if user.node.Ping(entry) {
+				if user.Node.Ping(entry) {
 					Print(UserTag, "RoutingEntry %+v is online, updating routing table...", entry)
-					user.node.updateRoutingTable(entry)
+					user.Node.updateRoutingTable(entry)
 				}			
 			}
 		}
@@ -258,16 +258,16 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 	defer user.mu.Unlock()
 
 	// check if message is for you, and you havn’t received it before -> then process
-	if args.ToUsername == user.name{
-		_, seenBefore := user.receivedMessageIdentifiers[args.MessageIdentifier]
+	if args.ToUsername == user.Name{
+		_, seenBefore := user.ReceivedMessageIdentifiers[args.MessageIdentifier]
 		if ! seenBefore{
-			Print(UserTag, "%s recieved a previously unseen message meant for me!: %s, from %s at %v", user.name, args.Content, args.FromUsername, args.Timestamp)
+			Print(UserTag, "%s recieved a previously unseen message meant for me!: %s, from %s at %v", user.Name, args.Content, args.FromUsername, args.Timestamp)
 			//initialize entry in messageHistory if first time hearing from user
 			if _, ok := user.MessageHistory[args.FromUsername]; !ok {
-				user.pendingMessages[args.FromUsername] = make([]*SendMessageArgs, 0)
+				user.PendingMessages[args.FromUsername] = make([]*SendMessageArgs, 0)
 			}
 			user.MessageHistory[args.FromUsername] = append(user.MessageHistory[args.FromUsername], args)
-			user.receivedMessageIdentifiers[args.MessageIdentifier] = true
+			user.ReceivedMessageIdentifiers[args.MessageIdentifier] = true
 			
 			// then notify the UI
 			/*
@@ -278,14 +278,14 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 			*/
 			
 		} else {
-			Print(UserTag, "%s recieved a previously seen message meant for me! Disregarding: %s, from %s at %v", user.name, args.Content, args.FromUsername, args.Timestamp)
+			Print(UserTag, "%s recieved a previously seen message meant for me! Disregarding: %s, from %s at %v", user.Name, args.Content, args.FromUsername, args.Timestamp)
 		}
 	} else {
 		// if not for you -> store in pendingMessages map
-		if _, ok := user.pendingMessages[args.ToUsername]; !ok {
-			user.pendingMessages[args.ToUsername] = make([]*SendMessageArgs, 0)
+		if _, ok := user.PendingMessages[args.ToUsername]; !ok {
+			user.PendingMessages[args.ToUsername] = make([]*SendMessageArgs, 0)
 		}
-		user.pendingMessages[args.ToUsername] = append(user.pendingMessages[args.ToUsername], args)
+		user.PendingMessages[args.ToUsername] = append(user.PendingMessages[args.ToUsername], args)
 	}
 	
 	// persist to disk
@@ -301,11 +301,11 @@ func (user *User) SendMessage(username string, content string) {
 	user.mu.Lock()
 	Print(UserTag, "Queuing message \"%s\" to %s", content, username)
 	//initilize map entry for a certain user
-	if _, ok := user.pendingMessages[username]; !ok {
-		user.pendingMessages[username] = make([]*SendMessageArgs, 0)
+	if _, ok := user.PendingMessages[username]; !ok {
+		user.PendingMessages[username] = make([]*SendMessageArgs, 0)
 	} 
-	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now(), ToUsername: username, FromUsername: user.name, MessageIdentifier: nrand()}
-	user.pendingMessages[username] = append(user.pendingMessages[username], pendingMessage)
+	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now(), ToUsername: username, FromUsername: user.Name, MessageIdentifier: nrand()}
+	user.PendingMessages[username] = append(user.PendingMessages[username], pendingMessage)
 	user.mu.Unlock()
 }
 
@@ -325,24 +325,24 @@ func (user *User) startSender() {
 		A separate thread which waits until Nodes 
 		are up to send them messages
 	*/
-	Print(SendingTag, "Sender process for %s starting...", user.name)
+	Print(SendingTag, "Sender process for %s starting...", user.Name)
 	for user.dead == false{
-		for username, _ := range user.pendingMessages {
-			for len(user.pendingMessages[username]) > 0 {
+		for username, _ := range user.PendingMessages {
+			for len(user.PendingMessages[username]) > 0 {
 				
-				ip := user.node.FindUser(username)
+				ip := user.Node.FindUser(username)
 				status := user.CheckStatus(ip)
 				if status == Online {
 					
 					// pop first message args off of slice
 					user.mu.Lock()
 					var args SendMessageArgs
-					if len(user.pendingMessages[username]) == 1 { 
-						args, user.pendingMessages[username] = *user.pendingMessages[username][0], make([]*SendMessageArgs, 0)
-					} else if len(user.pendingMessages[username]) > 1 {
+					if len(user.PendingMessages[username]) == 1 { 
+						args, user.PendingMessages[username] = *user.PendingMessages[username][0], make([]*SendMessageArgs, 0)
+					} else if len(user.PendingMessages[username]) > 1 {
 						// "Pop(0)" slice operation taken from:
 						// https://code.google.com/p/go-wiki/wiki/SliceTricks
-						args, user.pendingMessages[username] = *user.pendingMessages[username][0], user.pendingMessages[username][1:]
+						args, user.PendingMessages[username] = *user.PendingMessages[username][0], user.PendingMessages[username][1:]
 					}
 					user.mu.Unlock()
 					
@@ -357,11 +357,11 @@ func (user *User) startSender() {
 						// "Insert" slice operation taken from:
 						// https://code.google.com/p/go-wiki/wiki/SliceTricks
 						user.mu.Lock()
-						user.pendingMessages[username] = append(
-							user.pendingMessages[username][:0], 
-							append([]*SendMessageArgs{&args}, user.pendingMessages[username][0:]...)...)
+						user.PendingMessages[username] = append(
+							user.PendingMessages[username][:0], 
+							append([]*SendMessageArgs{&args}, user.PendingMessages[username][0:]...)...)
 						//forward to K nearest neighbors
-						kClosestEntryDists := user.node.FindNearestNodes(Sha1(username))
+						kClosestEntryDists := user.Node.FindNearestNodes(Sha1(username))
 						for _, entryDist := range kClosestEntryDists {
 							var replyOther SendMessageReply
 							call(entryDist.RoutingEntry.IpAddr, "User.SendMessageHandler", args, &replyOther)
@@ -379,15 +379,15 @@ func (user *User) startSender() {
 							// "Insert" slice operation taken from:
 							// https://code.google.com/p/go-wiki/wiki/SliceTricks
 							user.mu.Lock()
-							user.pendingMessages[username] = append(
-								user.pendingMessages[username][:0], 
-								append([]*SendMessageArgs{&args}, user.pendingMessages[username][0:]...)...)
+							user.PendingMessages[username] = append(
+								user.PendingMessages[username][:0], 
+								append([]*SendMessageArgs{&args}, user.PendingMessages[username][0:]...)...)
 							
 							// append to our convo history too
 							user.MessageHistory[username] = append(user.MessageHistory[username], &args) 
 							
 							//forward to K nearest neighbors
-							kClosestEntryDists := user.node.FindNearestNodes(Sha1(username))
+							kClosestEntryDists := user.Node.FindNearestNodes(Sha1(username))
 							for _, entryDist := range kClosestEntryDists {
 								var replyOther SendMessageReply
 								call(entryDist.RoutingEntry.IpAddr, "User.SendMessageHandler", args, &replyOther)
@@ -398,7 +398,7 @@ func (user *User) startSender() {
 				}
 			}
 		}		
-		Print(SendingTag, "Sender loop for %s running, pending: %v...", user.name, user.pendingMessages)
+		Print(SendingTag, "Sender loop for %s running, pending: %v...", user.Name, user.PendingMessages)
 		time.Sleep(500 * time.Millisecond)
 	}
 }
@@ -409,7 +409,7 @@ func (user *User) CheckStatus(ipAddr string) string {
 	*/
 	status := Online
 	routingEntry := RoutingEntry{IpAddr: ipAddr, NodeId: Sha1(ipAddr)}
-	ok := user.node.Ping(routingEntry)
+	ok := user.Node.Ping(routingEntry)
 	if !ok {
 		status = Offline
 	}
@@ -418,7 +418,7 @@ func (user *User) CheckStatus(ipAddr string) string {
 }
 
 func (user *User) IsOnline(username string) bool{
-	ip := user.node.FindUser(username)
+	ip := user.Node.FindUser(username)
 	return ip != "" && user.CheckStatus(ip) == Online
 }
 
