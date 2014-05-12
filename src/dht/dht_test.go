@@ -38,6 +38,16 @@ func isEqualRE(entry1 []RoutingEntry, entry2 []RoutingEntry) bool{
 	return true
 }
 
+func sliceEqual(a, b [IDLen][]RoutingEntry) bool {
+	for idx, bucketa := range a{
+		bucketb := b[idx]
+		if ! isEqualRE(bucketa, bucketb){
+			return false
+		}
+	}
+	return true
+}
+
 func registerMany(num_users int) []*User{
 	users := make([]*User, num_users)
 
@@ -69,7 +79,7 @@ func killAll(users []*User){
 	time.Sleep(time.Millisecond * 400)
 }
 
-func TestGobbing(t *testing.T) {
+func TestSerialization(t *testing.T) {
 	
 	port1 := ":4444"
 	port2 := ":5555"
@@ -122,6 +132,8 @@ func TestGobbing(t *testing.T) {
 		assertEqual(t, len(two.PendingMessages[user1.Name]), len(user2.PendingMessages[user1.Name]))
 		assertEqual(t, len(one.ReceivedMessageIdentifiers), len(user1.ReceivedMessageIdentifiers))
 		assertEqual(t, len(two.ReceivedMessageIdentifiers), len(user2.ReceivedMessageIdentifiers))
+		assertEqual(t, sliceEqual(one.Node.RoutingTable, user1.Node.RoutingTable), true)
+		assertEqual(t, sliceEqual(two.Node.RoutingTable, user2.Node.RoutingTable), true)
 	}
 }
 
@@ -351,19 +363,14 @@ func switchIp(users []*User, startPort int) {
 */
 func TestPersistance(t* testing.T) {
 	users := registerMany(3)
-	user := users[0]
-	fmt.Println(user.Name)
-	users[0].Serialize()
-	sucess, new_user := Deserialize("0")
-	fmt.Println(sucess, new_user.Name)
-	// defer killAll(users)
-	// users[0].Logoff()
-	// Login("0", localIp + ":8000")
-	// newUser := Login("0", localIp + ":8000")
-	// defer killAll([]*User{newUser})
-	time.Sleep(time.Second)
-	// checkLookup(t, newUser, users[1])
-	// checkLookup(t, newUser, users[2])
+	defer killAll(users)
+	users[0].Logoff()
+	time.Sleep(time.Millisecond * 200)
+	newUser := Login("0", localIp + ":8000")
+	defer killAll([]*User{newUser})
+	time.Sleep(time.Millisecond * 200)
+	checkLookup(t, newUser, users[1])
+	checkLookup(t, newUser, users[2])
 }
 
 /*

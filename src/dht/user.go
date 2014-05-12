@@ -140,6 +140,7 @@ func RegisterAndLogin(username string, userIpAddr string, bootstrapIpAddr string
 }
 
 func (user *User) Logoff() {
+	user.Serialize()
 	user.dead = true
 	user.l.Close()
 }
@@ -200,7 +201,6 @@ func loadUser(username, myIpAddr string) *User {
 	
 	// first deserialize the old User struct from disk
 	success, user := Deserialize(username)
-	fmt.Println("go to load user", success, user)
 	
 	// there was a userfile to load
 	if success {
