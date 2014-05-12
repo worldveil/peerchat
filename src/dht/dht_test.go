@@ -305,15 +305,15 @@ func TestSends(t *testing.T) {
 **  users can look each other up. Make sure the remaining users can
 **  tell that logged-off users are not online
 */
-func TestSomeFailures(t* testing.T) {
+func TestSomeLogoffs(t* testing.T) {
 	size := 10
 	failures := 3
 	users := registerMany(size)
 	defer killAll(users)
-	for i:=0; i < size-1; i++ {
+	for i:=0; i < len(users)-1; i++ {
 		go sendAndCheck(t, users[i], users[i+1])
 	}
-	go sendAndCheck(t, users[size-1], users[0])
+	sendAndCheck(t, users[size-1], users[0])
 	killAll(users[:failures])
 	time.Sleep(time.Second)
 	for _, aliveNode := range users[failures:] {
@@ -384,6 +384,21 @@ func TestNewIP(t* testing.T) {
 		}
 	}
 }
+
+func TestOfflineChat(t* testing.T) {
+    size := 3
+    users := registerMany(size)
+    defer killAll(users)
+	oldip := users[0].node.IpAddr
+    users[0].Logoff()
+    //sendAndCheck(t, users[1], users[0])
+	users[1].SendMessage("0", "hello")
+	time.Sleep(time.Second)
+	newUser := Login("0", oldip)
+	newUser.node.AnnounceUser("0", oldip)
+	time.Sleep(time.Second)
+	assertEqual(t, newUser.MessageHistory["1"][0].Content, "hello")
+} 
 
 func slowRegisterMany(n int, t int) []*User{
 	users := make([]*User, n)
