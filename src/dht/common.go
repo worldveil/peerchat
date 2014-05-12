@@ -12,7 +12,7 @@ import "os"
 // Configurable constants
 const (
 	IDLen = 64
-	K = 10
+	K = 20
 	Alpha = 5
 )
 
