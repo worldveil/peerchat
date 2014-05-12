@@ -113,11 +113,9 @@ func Login(username string, userIpAddr string) *User {
 	
 	Print(UserTag, "Attempting to log on with username=%s and ip=%s...", username, userIpAddr) 
 	user := loadUser(username, userIpAddr)
-	fmt.Println(user.Node.NodeId)
 	if user != nil {
 		user.setupUser()
 		time.Sleep(10*time.Millisecond)
-		fmt.Println(user.Node.NodeId)
 		user.Node.AnnounceUser(username, userIpAddr)
 		go user.startSender()
 		go user.startPersistor()
@@ -177,13 +175,11 @@ func (user *User) setupUser(){
 				conn.Close()
 			}
 			if err != nil && ! user.dead{
-				fmt.Println(err)
 				user.Logoff()
 			}			
 		}
 		
 		Print(StartTag, "!!!!!!!!!!!!!!!!!! Server %s shutting down...", user.Node.IpAddr)
-		fmt.Println("Server shutting down")
 	}()
 }
 
@@ -210,7 +206,6 @@ func loadUser(username, myIpAddr string) *User {
 	
 	// first deserialize the old User struct from disk
 	success, user := Deserialize(username)
-	fmt.Println("go to load user", success, user)
 	
 	// there was a userfile to load
 	if success {
@@ -219,7 +214,7 @@ func loadUser(username, myIpAddr string) *User {
 	
 		// check and see if ipaddr is the same as the old one
 		// if so, we don't need to change anything
-		if user.Node.IpAddr != myIpAddr || true{
+		if user.Node.IpAddr != myIpAddr{
 			
 			// otherwise, create a new nodeId
 			user.Node.NodeId = Sha1(myIpAddr)

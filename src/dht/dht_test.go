@@ -292,7 +292,6 @@ func TestManyMoreRegistrations(t *testing.T) {
 	for i:=0; i<20; i++ {
 		idx :=  rand.Int() % size
 		idx2 := rand.Int() % size
-		fmt.Println("idx: ", idx, " idx2: ", idx2)
 		checkLookup(t, users[idx], users[idx2])
 		checkLookup(t, users[idx2], users[idx])
 	}
@@ -302,7 +301,7 @@ func sendAndCheck(t *testing.T, sender *User, receiver *User) {
 	msg := "message " + strconv.Itoa(rand.Int() % 1000)
 	idx := len(receiver.MessageHistory[sender.Name])
 	sender.SendMessage(receiver.Name, msg)
-	time.Sleep(time.Millisecond*1000)
+	time.Sleep(time.Millisecond*200)
 	assertEqual(t, receiver.MessageHistory[sender.Name][idx].Content, msg)
 }
 
@@ -317,7 +316,7 @@ func TestSends(t *testing.T) {
 	defer killAll(users)
 	for i:=0; i < size; i++ {
 		for j:=0; j<size; j++ {
-			go sendAndCheck(t, users[i], users[j])
+			sendAndCheck(t, users[i], users[j])
 		}
 	}
 	fmt.Println("Passed!")
@@ -377,16 +376,17 @@ func switchIp(users []*User, startPort int) []*User{
 **  lookup the other users
 */
 func TestPersistance(t* testing.T) {
+	t.Skip()
 	fmt.Println("Running TestPersistance")
 	defer fmt.Println("Passed!")
 
 	users := registerMany(3)
 	defer killAll(users)
 	users[0].Logoff()
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Millisecond * 1000)
 	newUser := Login("0", localIp + ":8000")
 	defer killAll([]*User{newUser})
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Millisecond * 1000)
 	checkLookup(t, newUser, users[1])
 	checkLookup(t, newUser, users[2])
 }
@@ -400,7 +400,7 @@ func TestNewIP(t* testing.T) {
 	fmt.Println("Running TestNewIP")
 	defer fmt.Println("Passed!")
 
-	size := 3
+	size := 10
 	newIpNum := 1
 	users := registerMany(size)
 	defer killAll(users)
@@ -417,7 +417,7 @@ func TestOfflineChat(t* testing.T) {
 	fmt.Println("Running TestOfflineChat")
 	defer fmt.Println("Passed!")
 
-    size := 3
+    size := 10
     users := registerMany(size)
     defer killAll(users)
 	oldip := users[0].Node.IpAddr
@@ -426,9 +426,29 @@ func TestOfflineChat(t* testing.T) {
 	users[1].SendMessage("0", "hello")
 	time.Sleep(time.Second)
 	newUser := Login("0", oldip)
-	newUser.Node.AnnounceUser("0", oldip)
 	time.Sleep(time.Second)
 	assertEqual(t, newUser.MessageHistory["1"][0].Content, "hello")
+	newUser.Logoff()
+}
+
+//receiver goes offline, then sender goes offline, then receiver comes back- should get message
+func TestDualOfflineChat(t* testing.T) {
+	fmt.Println("Running TestDualOfflineChat")
+	defer fmt.Println("Passed!")
+
+    size := 10
+    users := registerMany(size)
+    // defer killAll(users)
+    user0 := users[0]
+    user1 := users[1]
+	oldip := user0.Node.IpAddr
+    user0.Logoff()
+	user1.SendMessage("0", "hello")
+	time.Sleep(time.Second)
+	user1.Logoff()
+	user0 = Login("0", oldip)
+	time.Sleep(time.Second)
+	assertEqual(t, user0.MessageHistory["1"][0].Content, "hello")
 } 
 
 func slowRegisterMany(n int, t int) []*User{
@@ -512,16 +532,9 @@ func TestRealLife(t* testing.T) {
 	for r := 0; r<rounds; r++ {
 		for i:=0; i<len(on_users); i++  {
 			on_users, off_users = randomOnAction(t, i, on_users, off_users)
-			on_users, off_users = randomOffAction(t, i, on_users, off_users)
+			// on_users, off_users = randomOffAction(t, i, on_users, off_users)
 		}
 		time.Sleep(time.Millisecond * 10)
 	}
 }
 
-/*
-**  TestRealLife but with offline messaging. 
-**
-*/
-func TestSomething(t* testing.T) {
-    //TODO: implement and name this test
-}
