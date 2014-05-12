@@ -523,6 +523,7 @@ func randomOffAction(t *testing.T, idx int, on_users, off_users []*User) ([]*Use
 **  pairs can look each other up
 */
 func TestRealLife(t* testing.T) {
+	t.Skip()
 	fmt.Println("Running TestRealLife")
 	defer fmt.Println("Passed!")
 
