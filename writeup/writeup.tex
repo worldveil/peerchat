@@ -82,11 +82,23 @@ colin
 
 \subsection{Performance Testing}
 
-will
+We tested the Peerchat system under a exponentially increasing size of the network $n$ hosted on a single machine. \\
+
+For this benchmark, we used our \textit{TestManyMoreRegistrations} test, which simulates a network of nodes undergoing a tumultuous increase of registrations and users entering the network. We kept $k = 10$ and $\alpha = 5$ constant, and varied only the size of the Peerchat network. 
+
+\includegraphics[scale=0.8]{performance-sweep}
+
+We see a clear correlation between $n$ and the length of the test. Most interestingly, the rate of increase of congestion and throughput of the network \textit{decrease} as $n$ increases. \\
+
+Unfortunately, the test of 320 nodes was cut short when our 4 core desktop could not handle the number of open files, but as you can see the slope of increase of the number of RPCs per second per node is actually the smallest of any of the tests. As the length of the tests more or less increases linearly even with the doubling values of $n$, we attribute the lower slope to the performance of the system rather than the limitations of the desktop. 
 
 \subsection{Chat User Interface}
 
-will
+We considered the terminal UI secondary to the DHT implementation, as it was only a necessity for testing, but have made a usable interface for terminal users on Unix systems. \\
+
+\includegraphics[scale=0.8]{ui} \\
+
+Upon running the Peerchat script, the user is prompted to enter their username. If that username has not been logged onto the system before (if the gob backup file was not found in the Peerchat data directory), then the user is prompted to start a new network or join an existing one. 
 
 \section{Future Work}
 
@@ -107,14 +119,4 @@ Peerchat is the best, blah, blah.
    \textit{Peer-to-Peer Systems. Springer Berlin Heidelberg}, 2002. 53-65
  
 \end{thebibliography}
-
-A user contains the API which our Client code uses directly. A user has a username, an Ip address, a message history etc. A user actually sends messages to another user. It also has a pointer to a Node. In this way, a user uses kademlia to find other users's IP addresses and to send offline messages.
-
-In Peerchat, each client, or user, creates a Kademlia node with a 64 int Node ID created from the hash of its IP address. Users find each other by storing a username -> Ip Address mapping in the distributed hash table (DHT). It does so by storing this map at the nearest K closest nodes to the hash of the username. Users call PeerChat's FindUser(username) API, which returns the IP address. Using Kademlia ensures that user?s find each other using at most log(n) hops, where n is the number of nodes (assuming the routing tables are filled in each bucket). 
-
-A user tries to send a message directly, using a background process that keeps sending pending messages until a node replies. In the case of failure, a node also sends the message to the K nearest nodes around the node, which add the message to their background queues. In this way, if the original sender logs out, and the recipient logs back in, the recipient can still receive the message. We call this functionality offline chat.
-
-A node is a Kademlia node as described in the protocol. It is a standalone system which implements it?s 4 main functions: StoreUser, FindNode, FindUser and Ping. It 
-
-
 \end {document}

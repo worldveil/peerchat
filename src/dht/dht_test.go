@@ -282,7 +282,7 @@ func TestManyRegistrations(t *testing.T) {
 */
 func TestManyMoreRegistrations(t *testing.T) {
 	
-	size := 640
+	//size := 640
 	//filename := fmt.Sprintf("/Users/will/Code/Go/peerchat/writeup/plots/SWEEP.csv")
 	//os.Create(filename)
 
