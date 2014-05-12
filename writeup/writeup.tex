@@ -31,7 +31,7 @@ We implemented two main entities for each Peerchat node: \textit{User} and \text
 
 \section{Background and Related Work}
 
-A very similar effort is BitTorrent Chat \cite{?}, which seeks to leverage the BitTorrent network to also also for personal, anonymous, decentralized communication. The effort has generated excitement due to the already massive user base of BitTorrent, though to date has not been released, nor is planned to be released as open-source. \\
+A very similar effort is BitTorrent Chat \cite{Goldoor13}, which seeks to leverage the BitTorrent network to also also for personal, anonymous, decentralized communication. The effort has generated excitement due to the already massive user base of BitTorrent, though to date has not been released, nor is planned to be released as open-source. \\
 
 We believe that a truly distributed chat system must be open-source in order to gain acceptance and ensure rigorous third-party audits. Though Peerchat in its current configuration is not secure, we feel that both a starting point and a commitment to open-source is important in a P2P chat client. 
 
@@ -101,11 +101,17 @@ Peerchat is the best, blah, blah.
 
 \begin{thebibliography}{99}
   \bibitem{Maymounkov02}
-    %Kademlia paper
+    %Kademlia
    Maymounkov, Petar and David Mazieres
    ''Kademlia: A Peer-to-peer Information System Based on the XOR Metric''
    \textit{Peer-to-Peer Systems. Springer Berlin Heidelberg}, 2002. 53-65
- 
+
+  \bibitem{Goldoor13}
+	%BitTorrent Chat
+	Goldoor, Abe
+	''Update on BitTorrent Chat.''
+	\textit{The BitTorrent Engineering Blog.}, 19 Dec 2013.
+
 \end{thebibliography}
 
 A user contains the API which our Client code uses directly. A user has a username, an Ip address, a message history etc. A user actually sends messages to another user. It also has a pointer to a Node. In this way, a user uses kademlia to find other users's IP addresses and to send offline messages.
