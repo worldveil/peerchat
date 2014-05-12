@@ -54,10 +54,11 @@ func registerMany(num_users int) []*User{
 	bootstrap := ""
 
 	for i :=0; i < num_users; i++{
+		base := 8000
 		username := strconv.Itoa(i)
-		ipAddr := localIp + ":" + strconv.Itoa(i + 8000)
+		ipAddr := localIp + ":" + strconv.Itoa(i + base)
 		user := RegisterAndLogin(username, ipAddr, bootstrap)
-		bootstrap = localIp + ":" + strconv.Itoa(i + 8000)
+		bootstrap = localIp + ":" + strconv.Itoa(i + base)
 		time.Sleep(time.Millisecond * 5)
 		users[i] = user
 	}
@@ -280,8 +281,12 @@ func TestManyRegistrations(t *testing.T) {
 **  and make sure they can look each other up
 */
 func TestManyMoreRegistrations(t *testing.T) {
+
+	filename := fmt.Sprintf("/Users/will/Code/Go/peerchat/writeup/plots/k-%d-a-%d.csv", K, Alpha)
+	os.Create(filename)
+
 	fmt.Println("Running TestManyMoreRegistrations")
-	size := 20
+	size := 100
 	users := registerMany(size)
 	defer killAll(users)
 	for i:=0; i<20; i++ {
