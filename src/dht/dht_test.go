@@ -249,10 +249,10 @@ func TestBasic(t *testing.T) {
 	
 	// ensure the messages got there
 	assertEqual(t, user2.GetMessagesFrom(user1)[0].Content, msg1)
-	assertEqual(t, user1.GetMessagesFrom(user2)[0].Content, msg2)
+	assertEqual(t, user1.GetMessagesFrom(user2)[1].Content, msg2)
 	
-	assertEqual(t, len(user2.MessageHistory[username1]), 1)
-	assertEqual(t, len(user1.MessageHistory[username2]), 1)
+	assertEqual(t, len(user2.MessageHistory[username1]), 2)
+	assertEqual(t, len(user1.MessageHistory[username2]), 2)
 	
 	// kill user nodes
 	user1.Logoff()
@@ -287,6 +287,7 @@ func TestManyMoreRegistrations(t *testing.T) {
 	for i:=0; i<20; i++ {
 		idx :=  rand.Int() % size
 		idx2 := rand.Int() % size
+		fmt.Println("idx: ", idx, " idx2: ", idx2)
 		checkLookup(t, users[idx], users[idx2])
 		checkLookup(t, users[idx2], users[idx])
 	}
@@ -296,7 +297,7 @@ func sendAndCheck(t *testing.T, sender *User, receiver *User) {
 	msg := "message " + strconv.Itoa(rand.Int() % 1000)
 	idx := len(receiver.MessageHistory[sender.Name])
 	sender.SendMessage(receiver.Name, msg)
-	time.Sleep(time.Millisecond*200)
+	time.Sleep(time.Millisecond*1000)
 	assertEqual(t, receiver.MessageHistory[sender.Name][idx].Content, msg)
 }
 
@@ -311,7 +312,7 @@ func TestSends(t *testing.T) {
 	defer killAll(users)
 	for i:=0; i < size; i++ {
 		for j:=0; j<size; j++ {
-			sendAndCheck(t, users[i], users[j])
+			go sendAndCheck(t, users[i], users[j])
 		}
 	}
 	fmt.Println("Passed!")
@@ -407,7 +408,6 @@ func TestNewIP(t* testing.T) {
 	}
 }
 
-//just the receiver goes offline nad comes back
 func TestOfflineChat(t* testing.T) {
 	fmt.Println("Running TestOfflineChat")
 	defer fmt.Println("Passed!")
@@ -417,29 +417,11 @@ func TestOfflineChat(t* testing.T) {
     defer killAll(users)
 	oldip := users[0].Node.IpAddr
     users[0].Logoff()
+    //sendAndCheck(t, users[1], users[0])
 	users[1].SendMessage("0", "hello")
 	time.Sleep(time.Second)
 	newUser := Login("0", oldip)
-	time.Sleep(time.Second)
-	assertEqual(t, newUser.MessageHistory["1"][0].Content, "hello")
-}
-
-//receiver goes offline, then sender goes offline, then receiver comes back- should get message
-func TestDualOfflineChat(t* testing.T) {
-	fmt.Println("Running TestOfflineChat")
-	defer fmt.Println("Passed!")
-
-    size := 3
-    users := registerMany(size)
-    // defer killAll(users)
-    user0 := users[0]
-    user1 := users[1]
-	oldip := user0.Node.IpAddr
-    user0.Logoff()
-	user1.SendMessage("0", "hello")
-	time.Sleep(time.Second)
-	user1.Logoff()
-	newUser := Login("0", oldip)
+	newUser.Node.AnnounceUser("0", oldip)
 	time.Sleep(time.Second)
 	assertEqual(t, newUser.MessageHistory["1"][0].Content, "hello")
 } 
