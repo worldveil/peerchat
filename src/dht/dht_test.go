@@ -286,7 +286,7 @@ func TestManyMoreRegistrations(t *testing.T) {
 	// os.Create(filename)
 
 	fmt.Println("Running TestManyMoreRegistrations")
-	size := 100
+	size := 40
 	users := registerMany(size)
 	defer killAll(users)
 	for i:=0; i<20; i++ {
@@ -383,10 +383,10 @@ func TestPersistance(t* testing.T) {
 	users := registerMany(3)
 	defer killAll(users)
 	users[0].Logoff()
-	time.Sleep(time.Millisecond * 1000)
+	time.Sleep(time.Millisecond * 200)
 	newUser := Login("0", localIp + ":8000")
 	defer killAll([]*User{newUser})
-	time.Sleep(time.Millisecond * 1000)
+	time.Sleep(time.Millisecond * 200)
 	checkLookup(t, newUser, users[1])
 	checkLookup(t, newUser, users[2])
 }
@@ -403,8 +403,8 @@ func TestNewIP(t* testing.T) {
 	size := 10
 	newIpNum := 1
 	users := registerMany(size)
-	defer killAll(users)
 	users = append(switchIp(users[:newIpNum], size+1), users[newIpNum:]...)
+	defer killAll(users)
 	time.Sleep(time.Second)
 	for _, olduser := range users[newIpNum:] {
 		for _, newuser := range users[:newIpNum] {
