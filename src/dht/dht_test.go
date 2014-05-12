@@ -278,10 +278,10 @@ func TestManyMoreRegistrations(t *testing.T) {
 }
 func sendAndCheck(t *testing.T, sender *User, receiver *User) {
 	msg := "message " + strconv.Itoa(rand.Int() % 1000)
-	idx := len(receiver.MessageHistory[sender.name])
-	sender.SendMessage(receiver.name, msg)
+	idx := len(receiver.MessageHistory[sender.Name])
+	sender.SendMessage(receiver.Name, msg)
 	time.Sleep(time.Millisecond*1000)
-	assertEqual(t, receiver.MessageHistory[sender.name][idx].Content, msg)
+	assertEqual(t, receiver.MessageHistory[sender.Name][idx].Content, msg)
 }
 
 /*
@@ -389,13 +389,13 @@ func TestOfflineChat(t* testing.T) {
     size := 3
     users := registerMany(size)
     defer killAll(users)
-	oldip := users[0].node.IpAddr
+	oldip := users[0].Node.IpAddr
     users[0].Logoff()
     //sendAndCheck(t, users[1], users[0])
 	users[1].SendMessage("0", "hello")
 	time.Sleep(time.Second)
 	newUser := Login("0", oldip)
-	newUser.node.AnnounceUser("0", oldip)
+	newUser.Node.AnnounceUser("0", oldip)
 	time.Sleep(time.Second)
 	assertEqual(t, newUser.MessageHistory["1"][0].Content, "hello")
 } 
@@ -447,13 +447,13 @@ func randomOnAction(t *testing.T, idx int, on_users, off_users []*User) ([]*User
 func randomOffAction(t *testing.T, idx int, on_users, off_users []*User) ([]*User, []*User) {
 	val := rand.Int() % 100
 	if val < logonprob {
-		ip := off_users[idx].node.IpAddr
+		ip := off_users[idx].Node.IpAddr
 		if rand.Int() %100 < changeipprob {
 			ip += "0"
 		}
-		newUser := Login(off_users[idx].name,ip)
+		newUser := Login(off_users[idx].Name,ip)
 		time.Sleep(time.Millisecond * 10)
-		newUser.node.AnnounceUser(newUser.name, ip)
+		newUser.Node.AnnounceUser(newUser.Name, ip)
 		time.Sleep(time.Millisecond * 10)
 		on_users = append(on_users, newUser)
 		off_users = append(off_users[:idx], off_users[idx+1:]...)
