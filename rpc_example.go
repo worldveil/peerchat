@@ -13,10 +13,6 @@ func main() {
 	startChat()
 }
 
-func visit(path string, f os.FileInfo, err error) error {
-	fmt.Printf("Visited: %s\n", path)
-	return nil
-} 
 func input(reader *bufio.Reader) string {
 	input, _ := reader.ReadString('\n')
     input = input[:len(input)-1]

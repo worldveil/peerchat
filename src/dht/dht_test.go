@@ -68,6 +68,10 @@ func killAll(users []*User){
 	}
 }
 
+func TestGobbing(t *testing.T) {
+	
+}
+
 /*
 **  Unit tests for helper functions in common.go
 */

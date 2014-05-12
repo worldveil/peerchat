@@ -7,6 +7,7 @@ import "sync"
 import "net"
 import "log"
 import "fmt"
+import "github.com/pmylund/sortutil"
 
 const UserTag = "USER"
 const SendingTag = "SENDING"
@@ -18,6 +19,7 @@ type User struct {
 	MessageHistory map[string][]*SendMessageArgs // username => messages we've gotten so far
 	pendingMessages map[string][]*SendMessageArgs // username => slice of pending messages to apply
 	receivedMessageIdentifiers map[int64]bool // messageIdentifier (int64) => true if seen messageIdentifier before
+	//Notifications map[string]chan *SendMessageArgs
 }
 
 const PEERCHAT_USERDATA_DIR = "/tmp"
@@ -173,8 +175,10 @@ func MakeUser(username string, ipAddr string) *User{
 	emptyPendingMessages := make(map[string][]*SendMessageArgs)
 	history := make(map[string][]*SendMessageArgs)
 	receivedMessageIdentifiers := make(map[int64]bool)
+	//notifications := make(map[string]chan *SendMessageArgs)
+	
 	node := MakeNode(username, ipAddr)
-	user := &User{node: node, name: username, pendingMessages: emptyPendingMessages, MessageHistory: history, receivedMessageIdentifiers: receivedMessageIdentifiers}
+	user := &User{node: node, name: username, pendingMessages: emptyPendingMessages, MessageHistory: history, receivedMessageIdentifiers: receivedMessageIdentifiers } //, Notifications: notifications}
 	return user
 }
 
@@ -255,6 +259,15 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 			}
 			user.MessageHistory[args.FromUsername] = append(user.MessageHistory[args.FromUsername], args)
 			user.receivedMessageIdentifiers[args.MessageIdentifier] = true
+			
+			// then notify the UI
+			/*
+			if _, ok := user.Notifications[args.FromUsername]; !ok {
+				user.Notifications[args.FromUsername] = make(chan *SendMessageArgs, 10000)
+			}
+			user.Notifications[args.FromUsername] <- args
+			*/
+			
 		} else {
 			Print(UserTag, "%s recieved a previously seen message meant for me! Disregarding: %s, from %s at %v", user.name, args.Content, args.FromUsername, args.Timestamp)
 		}
@@ -343,6 +356,10 @@ func (user *User) startSender() {
 							user.pendingMessages[username] = append(
 								user.pendingMessages[username][:0], 
 								append([]*SendMessageArgs{&args}, user.pendingMessages[username][0:]...)...)
+							
+							// append to our convo history too
+							user.MessageHistory[username] = append(user.MessageHistory[username], &args) 
+							
 							//forward to K nearest neighbors
 							kClosestEntryDists := user.node.FindNearestNodes(Sha1(username))
 							for _, entryDist := range kClosestEntryDists {
@@ -380,23 +397,28 @@ func (user *User) IsOnline(username string) bool{
 	return ip != "" && user.CheckStatus(ip) == Online
 }
 
-func (user *User) AreNewMessagesFrom(other username, last int) bool {
+func (user *User) AreNewMessagesFrom(other string, mostRecent time.Time) (bool, []*SendMessageArgs) {
 	
 	areNew := false
 	newMessages := make([]*SendMessageArgs, 0)
 	
-	// get messages in this conversation
+	// get messages in this conversation, and traverse
+	// messages in the conversation in order of timing
 	messages := user.MessageHistory[other]
 	sortutil.AscByField(messages, "Timestamp")
-	for _, message := range user.MessageHistory[other] {
+	for _, message := range messages {
+		stamp := message.Timestamp
 		
+		// http://golang.org/src/pkg/time/time.go?s=2447:2479#L50
+		if stamp.After(mostRecent) {
+			areNew = true
+		}
+		
+		if areNew {
+			newMessages = append(newMessages, message)
+		}
 	}
-}
-
-func (user *User) GetNewMessagesFrom(other username, n int) []*SendMessageArgs {
-	/*
-		
-	*/
 	
+	return areNew, newMessages
 }
 
