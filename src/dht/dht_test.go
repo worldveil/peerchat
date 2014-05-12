@@ -281,12 +281,12 @@ func TestManyRegistrations(t *testing.T) {
 **  and make sure they can look each other up
 */
 func TestManyMoreRegistrations(t *testing.T) {
-
-	// filename := fmt.Sprintf("/Users/will/Code/Go/peerchat/writeup/plots/k-%d-a-%d.csv", K, Alpha)
-	// os.Create(filename)
+	
+	size := 640
+	//filename := fmt.Sprintf("/Users/will/Code/Go/peerchat/writeup/plots/SWEEP.csv")
+	//os.Create(filename)
 
 	fmt.Println("Running TestManyMoreRegistrations")
-	size := 40
 	users := registerMany(size)
 	defer killAll(users)
 	for i:=0; i<20; i++ {
