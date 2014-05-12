@@ -373,6 +373,21 @@ func TestNewIP(t* testing.T) {
 	}
 }
 
+func TestOfflineChat(t* testing.T) {
+    size := 3
+    users := registerMany(size)
+    defer killAll(users)
+	oldip := users[0].node.IpAddr
+    users[0].Logoff()
+    //sendAndCheck(t, users[1], users[0])
+	users[1].SendMessage("0", "hello")
+	time.Sleep(time.Second)
+	newUser := Login("0", oldip)
+	newUser.node.AnnounceUser("0", oldip)
+	time.Sleep(time.Second)
+	assertEqual(t, newUser.MessageHistory["1"][0].Content, "hello")
+} 
+
 func slowRegisterMany(n int, t int) []*User{
 	users := make([]*User, n)
 
