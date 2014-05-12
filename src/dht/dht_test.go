@@ -282,8 +282,8 @@ func TestManyRegistrations(t *testing.T) {
 */
 func TestManyMoreRegistrations(t *testing.T) {
 
-	filename := fmt.Sprintf("/Users/will/Code/Go/peerchat/writeup/plots/k-%d-a-%d.csv", K, Alpha)
-	os.Create(filename)
+	// filename := fmt.Sprintf("/Users/will/Code/Go/peerchat/writeup/plots/k-%d-a-%d.csv", K, Alpha)
+	// os.Create(filename)
 
 	fmt.Println("Running TestManyMoreRegistrations")
 	size := 100
@@ -376,7 +376,7 @@ func switchIp(users []*User, startPort int) []*User{
 **  lookup the other users
 */
 func TestPersistance(t* testing.T) {
-	t.Skip()
+//	t.Skip()
 	fmt.Println("Running TestPersistance")
 	defer fmt.Println("Passed!")
 
