@@ -7,6 +7,7 @@ import "fmt"
 import "strconv"
 import "crypto/rand"
 import "math/big"
+// import "os"
 
 // Configurable constants
 const (
@@ -20,7 +21,7 @@ const (
 	Offline = "Offline"
 )
 
-const Debug=0
+const Debug=1
 
 func Print(tag string, format string, a ...interface{}) (n int, err error) {
 	tag = "["+tag+"]		"
@@ -32,6 +33,7 @@ func Print(tag string, format string, a ...interface{}) (n int, err error) {
 
 func Short(id ID) string{
 	my_string := strconv.FormatUint(uint64(id), 10)
+	// fmt.Println(my_string)
 	return my_string[:4]
 }
 
@@ -175,14 +177,14 @@ func moveToEnd(slice []RoutingEntry, index int) []RoutingEntry{
 // the return value is true if the server responded, and false
 // if call() was not able to contact the server. in particular,
 // the reply's contents are only valid if call() returned true.
-//
-// you should assume that call() will time out and return an
-// error after a while if it doesn't get a reply from the server.
-//
-// please use call() to send all RPCs, in client.go and server.go.
-// please don't change this function.
-//
 func call(srv string, rpcname string, args interface{}, reply interface{}) bool {
+	//Write to RPC output to file for benchmarking
+	Print("RPC", "RPC: %v, timestamp %v, K: %v, alfa: %v", rpcname, time.Now(), K, Alpha)
+	// f, _ := os.OpenFile("temp.txt", os.O_APPEND|os.O_WRONLY, 0660)
+	// defer f.Close()
+	// f.WriteString("writes\n")
+	// f.Sync()
+
 	client, errx := rpc.Dial("tcp", srv)
 	if errx != nil {
 		return false
