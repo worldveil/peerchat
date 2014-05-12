@@ -69,6 +69,56 @@ func killAll(users []*User){
 	time.Sleep(time.Millisecond * 400)
 }
 
+func TestGobbing(t *testing.T) {
+	
+	port1 := ":4444"
+	port2 := ":5555"
+	username1 := "Alice"
+	username2 := "Frans"
+	
+	// remove any serialized users
+	os.Remove(UsernameToPath(username1))
+	os.Remove(UsernameToPath(username2))
+
+	// user1 starts the Peerchat network, and
+	// user2 joins by bootstrapping
+	user1 := RegisterAndLogin(username1, localIp + port1, "")
+	time.Sleep(time.Millisecond * 50)
+	user2 := RegisterAndLogin(username2, localIp + port2, localIp + port1)
+
+	time.Sleep(time.Millisecond * 50)
+
+	// tests that we can find both users!
+	u1_ip := user2.node.FindUser(username1)
+	assertEqual(t, u1_ip, localIp+port1)
+	u2_ip := user1.node.FindUser(username2)
+	assertEqual(t, u2_ip, localIp+port2)
+	
+	// users exchange messages
+	msg1 := "Hi Frans! Wanna play squash?"
+	msg2 := "Sure Alice, what time?"
+	
+	user1.SendMessage(username2, msg1)
+	time.Sleep(time.Second * 1)
+	user2.SendMessage(username1, msg2)
+	
+	time.Sleep(1 * time.Second)
+	
+	// remove any serialized users
+	os.Remove(UsernameToPath(username1))
+	os.Remove(UsernameToPath(username2))
+	
+	user1.Serialize()
+	user2.Serialize()
+	
+	success, one := Deserialize(user1.name)
+	success2, two := Deserialize(user2.name)
+	if success && success2 {
+		assertEqual(t, one.name, user1.name)
+		assertEqual(t, two.name, user2.name)
+	}
+}
+
 /*
 **  Unit tests for helper functions in common.go
 */

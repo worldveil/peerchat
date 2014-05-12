@@ -2,7 +2,6 @@ package dht
 
 import "math"
 import "github.com/pmylund/sortutil"
-//import "strings"
 import "net/rpc"
 import "encoding/gob"
 
