@@ -64,8 +64,9 @@ func registerMany(num_users int) []*User{
 
 func killAll(users []*User){
 	for _, user := range users {
-		user.node.Dead <- true
+		user.Logoff()
 	}
+	time.Sleep(time.Millisecond * 400)
 }
 
 func TestGobbing(t *testing.T) {
@@ -185,8 +186,8 @@ func TestBasic(t *testing.T) {
 	assertEqual(t, len(user1.MessageHistory[username2]), 1)
 	
 	// kill user nodes
-	user1.node.Dead <- true
-	user2.node.Dead <- true
+	user1.Logoff()
+	user2.Logoff()
 }
 
 /*
@@ -195,7 +196,7 @@ func TestBasic(t *testing.T) {
 */
 func TestManyRegistrations(t *testing.T) {
 	fmt.Println("Running TestManyRegistrations")	
-	users := registerMany(50)
+	users := registerMany(10)
 	defer killAll(users)
 	for _, user := range users{
 		for _, targetUser := range users{
@@ -211,7 +212,7 @@ func TestManyRegistrations(t *testing.T) {
 */
 func TestManyMoreRegistrations(t *testing.T) {
 	fmt.Println("Running TestManyMoreRegistrations")
-	size := 100
+	size := 20
 	users := registerMany(size)
 	defer killAll(users)
 	for i:=0; i<20; i++ {
@@ -298,7 +299,7 @@ func switchIp(users []*User, startPort int) {
 */
 func TestPersistance(t* testing.T) {
 	users := registerMany(3)
-	defer killAll(users)
+	// defer killAll(users)
 	users[0].Logoff()
 	newUser := Login("0", localIp + ":8004")
 	defer killAll([]*User{newUser})

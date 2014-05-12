@@ -16,8 +16,6 @@ type DhtNode struct {
 	NodeId ID // sha1(ip)
 	RoutingTable [IDLen][]RoutingEntry // map from NodeId to IP- a IDLen X K matrix
 	kv map[ID]string // map from username to IP
-	port string
-	Dead chan bool
 }
 
 //this gets called when another node is contacting this node through any API method!
@@ -117,7 +115,7 @@ func (node *DhtNode) AnnounceUser(username string, ipAddr string) {
 	// does lookup(node.NodeId) in order to populate other node's routing table with my info
 	node.FindNearestNodes(node.NodeId)
 	// does lookup(hash(username)) to find K closest nodes to username then calls StoreUserHandler RPC on each node	
-	kClosestEntryDists:= node.FindNearestNodes(Sha1(username))
+	kClosestEntryDists := node.FindNearestNodes(Sha1(username))
 	args := &StoreUserArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: ipAddr, AnnouncedUserId: Sha1(username), AnnouncedIpAddr: ipAddr}
 	for _, entryDist := range kClosestEntryDists{
 		var reply PingReply
@@ -348,8 +346,6 @@ func MakeNode(username string, myIpAddr string) *DhtNode{
 	node := &DhtNode{IpAddr: myIpAddr, NodeId: Sha1(myIpAddr)}
 	node.kv = make(map[ID]string)
 	node.MakeEmptyRoutingTable()
-	//node.port = strings.Split(myIpAddr, ":")[1]
-	node.Dead = make(chan bool, 10)
 	
 	Print(StartTag, "DHT Node created for username=%s with ip=%s, moving to gob setup...", username, myIpAddr)	
 	return node
