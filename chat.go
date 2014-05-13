@@ -101,7 +101,7 @@ func startChat() {
     fmt.Printf(".\n")
     
     // prompt them to chat
-    fmt.Printf("Connected as user: %+v\n", user)
+    // fmt.Printf("Connected as user: %+v\n", user)
     
     // update loop
     go func() {
