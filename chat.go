@@ -136,10 +136,11 @@ func startChat() {
 	    	} else if text[0] == 92 {
 	    		// switching users to chat with
 	    		peer = text[1:]
-	    		fmt.Printf("Swtiching to talk to: %s\n", peer)
+	    		fmt.Printf("Swtiching to talk to: %v\n", peer)
 	    		user.UpdateCurrentPeer(peer)
 	    		fmt.Printf("me> ")
 	    		paint(user)
+	    		
 	    		
 	    	} else if text == "exit" {
 	    		// exit peerchat
@@ -191,7 +192,7 @@ func paint(user *dht.User) {
 		sortutil.AscByField(messages, "Timestamp")
 		for i := 0; i < len(messages); i++ {
 			msg := messages[i]
-			fmt.Printf("%s[%v]> %s\n", msg.FromUsername, msg.Timestamp, msg.Content)
+			fmt.Printf("%s> %s\n", msg.FromUsername, msg.Content)
 		}
 	}
 	
