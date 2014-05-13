@@ -13,7 +13,8 @@ const SendingTag = "SENDING"
 
 type User struct {
 	l net.Listener
-	mu sync.Mutex
+	pendingMessagesLock sync.Mutex
+	messageHistoryLock sync.Mutex
 	Node *DhtNode
 	Name string
 	MessageHistory map[string][]*SendMessageArgs // username => messages we've gotten so far
@@ -259,14 +260,14 @@ func loadUser(username, myIpAddr string) *User {
 
 //SendMessage RPC Handler
 func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageReply) error {
-	
-	user.mu.Lock()
-	defer user.mu.Unlock()
+	Print(UserTag, "%s entering SendMessageHandler", user.Name)
 
 	// check if message is for you, and you havn’t received it before -> then process
 	if args.ToUsername == user.Name{
 		_, seenBefore := user.ReceivedMessageIdentifiers[args.MessageIdentifier]
 		if ! seenBefore{
+			// user.pendingMessagesLock.Lock()
+			// user.messageHistoryLock.Lock()
 			Print(UserTag, "%s recieved a previously unseen message meant for me!: %s, from %s at %v", user.Name, args.Content, args.FromUsername, args.Timestamp)
 			//initialize entry in messageHistory if first time hearing from user
 			if _, ok := user.MessageHistory[args.FromUsername]; !ok {
@@ -274,6 +275,8 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 			}
 			user.MessageHistory[args.FromUsername] = append(user.MessageHistory[args.FromUsername], args)
 			user.ReceivedMessageIdentifiers[args.MessageIdentifier] = true
+			// user.pendingMessagesLock.Unlock()
+			// user.messageHistoryLock.Unlock()
 			
 			// then notify the UI
 			user.notifications <- args
@@ -282,11 +285,13 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 			Print(UserTag, "%s recieved a previously seen message meant for me! Disregarding: %s, from %s at %v", user.Name, args.Content, args.FromUsername, args.Timestamp)
 		}
 	} else {
+		// user.pendingMessagesLock.Lock()
 		// if not for you -> store in pendingMessages map
 		if _, ok := user.PendingMessages[args.ToUsername]; !ok {
 			user.PendingMessages[args.ToUsername] = make([]*SendMessageArgs, 0)
 		}
 		user.PendingMessages[args.ToUsername] = append(user.PendingMessages[args.ToUsername], args)
+		// user.pendingMessagesLock.Unlock()
 	}
 	
 	// persist to disk
@@ -299,7 +304,10 @@ func (user *User) SendMessage(username string, content string) {
 	/*
 		Sends message with content to username. In offline case, we save the message for later
 	*/
-	user.mu.Lock()
+	// user.pendingMessagesLock.Lock()
+	// user.messageHistoryLock.Lock()
+	// defer user.pendingMessagesLock.Unlock()
+	// defer user.messageHistoryLock.Unlock()
 	Print(UserTag, "Queuing message \"%s\" to %s", content, username)
 	//initilize map entry for a certain user
 	if _, ok := user.PendingMessages[username]; !ok {
@@ -308,7 +316,6 @@ func (user *User) SendMessage(username string, content string) {
 	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now().Unix(), ToUsername: username, FromUsername: user.Name, MessageIdentifier: nrand()}
 	user.PendingMessages[username] = append(user.PendingMessages[username], pendingMessage)
 	user.MessageHistory[username] = append(user.MessageHistory[username], pendingMessage) 
-	user.mu.Unlock()
 }
 
 func (user *User) startPersistor() {
@@ -329,6 +336,8 @@ func (user *User) startSender() {
 	*/
 	Print(SendingTag, "Sender process for %s starting...", user.Name)
 	for user.dead == false{
+		// user.pendingMessagesLock.Lock()
+		// user.messageHistoryLock.Lock()
 		for username, _ := range user.PendingMessages {
 			for len(user.PendingMessages[username]) > 0 {
 				
@@ -337,7 +346,6 @@ func (user *User) startSender() {
 				if status == Online {
 					
 					// pop first message args off of slice
-					user.mu.Lock()
 					var args SendMessageArgs
 					if len(user.PendingMessages[username]) == 1 { 
 						args, user.PendingMessages[username] = *user.PendingMessages[username][0], make([]*SendMessageArgs, 0)
@@ -346,19 +354,21 @@ func (user *User) startSender() {
 						// https://code.google.com/p/go-wiki/wiki/SliceTricks
 						args, user.PendingMessages[username] = *user.PendingMessages[username][0], user.PendingMessages[username][1:]
 					}
-					user.mu.Unlock()
 					
 					// create reply and send to user
 					var reply SendMessageReply
-					Print(SendingTag, "SenderLoop: Sending \"%s\" to %s...", args.Content, args.ToUsername)
+					Print(SendingTag, "SenderLoop: Node %v Sending \"%s\" to %s...", user.Name, args.Content, args.ToUsername)
+					// user.pendingMessagesLock.Unlock()
+					// user.messageHistoryLock.Unlock()
 					ok := call(ip, "User.SendMessageHandler", args, &reply)
+					// user.pendingMessagesLock.Lock()
+					// user.messageHistoryLock.Lock()
 					
 					// if our message sending failed, put back on queue
 					if ! ok {
 						// put message back on front of queue and continue
 						// "Insert" slice operation taken from:
 						// https://code.google.com/p/go-wiki/wiki/SliceTricks
-						user.mu.Lock()
 						user.PendingMessages[username] = append(
 							user.PendingMessages[username][:0], 
 							append([]*SendMessageArgs{&args}, user.PendingMessages[username][0:]...)...)
@@ -366,21 +376,27 @@ func (user *User) startSender() {
 						kClosestEntryDists := user.Node.FindNearestNodes(Sha1(username))
 						for _, entryDist := range kClosestEntryDists {
 							var replyOther SendMessageReply
+							// user.pendingMessagesLock.Unlock()
+							// user.messageHistoryLock.Unlock()
 							call(entryDist.RoutingEntry.IpAddr, "User.SendMessageHandler", args, &replyOther)
+							// user.pendingMessagesLock.Lock()
+							// user.messageHistoryLock.Lock()
 						}
-						user.mu.Unlock()
 						
 						// create reply and send to user
 						var reply SendMessageReply
-						Print(SendingTag, "SenderLoop: Sending \"%s\" to %s...", args.Content, args.ToUsername)
+						Print(SendingTag, "SenderLoop: Node %v Sending \"%s\" to %s...", user.Name, args.Content, args.ToUsername)
+						// user.pendingMessagesLock.Unlock()
+						// user.messageHistoryLock.Unlock()
 						ok := call(ip, "User.SendMessageHandler", args, &reply)
+						// user.pendingMessagesLock.Lock()
+						// user.messageHistoryLock.Lock()
 						
 						// if our message sending failed, put back on queue
 						if ! ok {
 							// put message back on front of queue and continue
 							// "Insert" slice operation taken from:
 							// https://code.google.com/p/go-wiki/wiki/SliceTricks
-							user.mu.Lock()
 							user.PendingMessages[username] = append(
 								user.PendingMessages[username][:0], 
 								append([]*SendMessageArgs{&args}, user.PendingMessages[username][0:]...)...)
@@ -389,15 +405,25 @@ func (user *User) startSender() {
 							kClosestEntryDists := user.Node.FindNearestNodes(Sha1(username))
 							for _, entryDist := range kClosestEntryDists {
 								var replyOther SendMessageReply
+								// user.pendingMessagesLock.Unlock()
+								// user.messageHistoryLock.Unlock()
 								call(entryDist.RoutingEntry.IpAddr, "User.SendMessageHandler", args, &replyOther)
+								// user.pendingMessagesLock.Lock()
+								// user.messageHistoryLock.Lock()
 							}
-							user.mu.Unlock()
 						}
 					}
+				} else {
+					Print(SendingTag, "User is offline- wait to send his messages")
+					//remove user from KV
+					delete(user.Node.Kv, Sha1(username))
+					break 
 				}
 			}
-		}		
-		Print(SendingTag, "Sender loop for %s running, pending: %v...", user.Name, user.PendingMessages)
+		}
+		// user.pendingMessagesLock.Unlock()
+		// user.messageHistoryLock.Unlock()	
+		// Print(SendingTag, "Sender loop for %s running, pending: %v...", user.Name, user.PendingMessages)
 		time.Sleep(50 * time.Millisecond)
 	}
 }
@@ -422,8 +448,6 @@ func (user *User) IsOnline(username string) bool{
 }
 
 func (user *User) UpdateCurrentPeer(peer string) {
-	user.mu.Lock()
-	defer user.mu.Unlock()
 	user.Current = peer
 }
 
@@ -435,10 +459,7 @@ func (user *User) AllMessagesFromUser(other string) []*SendMessageArgs {
 }
 
 func (user *User) AreNewMessagesFrom(other string) (bool, []SendMessageArgs) {
-	
-	user.mu.Lock()
-	defer user.mu.Unlock()
-	
+
 	areNew := false
 	newMessages := make([]SendMessageArgs, 0)
 	mostRecent := int64(0)

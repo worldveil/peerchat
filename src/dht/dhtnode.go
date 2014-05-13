@@ -186,9 +186,23 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 	// requests up to alpha requests
 	for {
 		reply := <-replyChannel
+		sent--
 		if reply.QueriedNodeId == 0{
 			Print(DHTHelperTag, "Node %v received dropped DhtNode.Find%sHandler packet", Short(node.NodeId), targetType)
-			if sent == 1{
+			//try to send to another- if still no more, then continue
+			for i := sent; i < Alpha; i++ {
+				for _, entryDist := range closestNodes{
+					//find first value not in tried nodes
+					_, already_tried := triedNodes[entryDist.RoutingEntry.NodeId]
+					if ! already_tried {
+						go node.sendFindIdQuery(entryDist.RoutingEntry, replyChannel, targetId, targetType)
+						triedNodes[entryDist.RoutingEntry.NodeId] = true
+						sent++
+						break
+					}
+				}
+			}
+			if sent == 0 {
 				return closestNodes, ""
 			}
 			continue
@@ -231,7 +245,6 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 			return closestNodes, ""
 		}
 		closestNodes = combined
-		sent--
 		// then check to see if we are still under
 		// the total of alpha messages still in flight
 		// and if so, send more
@@ -245,8 +258,8 @@ func (node *DhtNode) idLookup(targetId ID, targetType string) ([]RoutingEntryDis
 					sent++
 					break
 				}
-			}			
-		}		
+			}
+		}
 	}	
 }
 
@@ -298,6 +311,10 @@ func (node *DhtNode) PingHandler(args *PingArgs, reply *PingReply) error {
 //assume you already have them in routing table
 func (node *DhtNode) Ping(routingEntry RoutingEntry) bool{
 	Print(ApiTag, "Node %v calling Ping on ip: %s", Short(node.NodeId), routingEntry.IpAddr)
+	if routingEntry.IpAddr == node.IpAddr {
+		Print(ApiTag, "Node %v Pinging itself...", Short(node.NodeId))
+		return true
+	}
 	args := &PingArgs{QueryingNodeId: node.NodeId, QueryingIpAddr: node.IpAddr}
 	var reply PingReply
 	ok := call(routingEntry.IpAddr, "DhtNode.PingHandler", args, &reply)

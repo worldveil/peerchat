@@ -7,12 +7,13 @@ import "strconv"
 import "crypto/rand"
 import "math/big"
 import "os"
+import "time"
 
 // Configurable constants
 const (
 	IDLen = 64
 	K = 20
-	Alpha = 5
+	Alpha = 3
 )
 
 const (
@@ -198,17 +199,26 @@ func call(srv string, rpcname string, args interface{}, reply interface{}) bool 
 	appendToCsv(filename, text)
 	*/
 
-	client, errx := rpc.Dial("tcp", srv)
-	if errx != nil {
+	c:= make(chan bool, 1)
+	go func() { 
+		client, errx := rpc.Dial("tcp", srv)
+		if errx != nil {
+			c <- false
+			return
+		}
+		defer client.Close()
+			
+		err := client.Call(rpcname, args, reply)
+		if err == nil {
+			c <- true
+			return
+		}
+	}()
+
+	select {
+	case result := <- c:
+		return result
+	case <- time.After(time.Second *2):
 		return false
 	}
-	defer client.Close()
-		
-	err := client.Call(rpcname, args, reply)
-	if err == nil {
-		return true
-	}
-
-	fmt.Println(err)
-	return false
 }
