@@ -8,6 +8,7 @@ Distributed, P2P, realtime chat application written in golang.
 Run the tests with:
 
 	$ cd src/dht
+	$ go get github.com/pmylund/sortutil
 	$ go test 2> /dev/null
 	
 You should see this:
