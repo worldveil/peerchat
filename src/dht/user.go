@@ -23,7 +23,7 @@ type User struct {
 	notifications chan *SendMessageArgs
 	dead bool
 	
-	lastSeenMap map[string]int64
+	LastSeenMap map[string]int64
 	Current string // the current ser we're chatting with
 }
 
@@ -191,10 +191,10 @@ func MakeUser(username string, ipAddr string) *User{
 	history := make(map[string][]*SendMessageArgs)
 	receivedMessageIdentifiers := make(map[int64]bool)
 	notifications := make(chan *SendMessageArgs, 100000)
-	lastSeenMap := make(map[string]int64)
+	LastSeenMap := make(map[string]int64)
 	
 	node := MakeNode(username, ipAddr)
-	user := &User{Node: node, Name: username, PendingMessages: emptyPendingMessages, MessageHistory: history, ReceivedMessageIdentifiers: receivedMessageIdentifiers, notifications: notifications, Current: "", lastSeenMap: lastSeenMap}
+	user := &User{Node: node, Name: username, PendingMessages: emptyPendingMessages, MessageHistory: history, ReceivedMessageIdentifiers: receivedMessageIdentifiers, notifications: notifications, Current: "", LastSeenMap: LastSeenMap}
 	return user
 }
 
@@ -442,7 +442,7 @@ func (user *User) AreNewMessagesFrom(other string) (bool, []SendMessageArgs) {
 	areNew := false
 	newMessages := make([]SendMessageArgs, 0)
 	mostRecent := int64(0)
-	if recent, ok := user.lastSeenMap[other]; ok {
+	if recent, ok := user.LastSeenMap[other]; ok {
 		mostRecent = recent
 	}
 	
@@ -472,7 +472,7 @@ func (user *User) AreNewMessagesFrom(other string) (bool, []SendMessageArgs) {
 	
 	// update the most recent to be the last one we've seen
 	if len(messages) > 0 {
-		user.lastSeenMap[other] = messages[len(messages) - 1].Timestamp
+		user.LastSeenMap[other] = messages[len(messages) - 1].Timestamp
 	}
 	
 	return areNew, newMessages
