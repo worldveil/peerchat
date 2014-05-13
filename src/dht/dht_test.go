@@ -262,12 +262,12 @@ func TestBasic(t *testing.T) {
 }
 
 /*
-**  RegisterAndLogin 50 users and make sure that each user can lookup
+**  RegisterAndLogin 20 users and make sure that each user can lookup
 **  the IP address of every other user
 */
 func TestManyRegistrations(t *testing.T) {
 	fmt.Println("Running TestManyRegistrations")	
-	users := registerMany(10)
+	users := registerMany(20)
 	defer killAll(users)
 	for _, user := range users{
 		for _, targetUser := range users{
@@ -406,7 +406,7 @@ func TestPersistance(t* testing.T) {
 }
 
 /*
-**  RegisterAndLogin 3 users. Have one log off and then log back on
+**  RegisterAndLogin 10 users. Have one log off and then log back on
 **  with a new IP address. Make sure other users can lookup
 **  that user's new address.
 */
@@ -467,6 +467,7 @@ func TestDualOfflineChat(t* testing.T) {
 	user0 = *Login("0", oldip)
 	time.Sleep(time.Millisecond*500)
 	assertEqual(t, user0.MessageHistory["1"][len(user0.MessageHistory["1"]) - 1].Content, "hello")
+	user0.Logoff()
 } 
 
 func slowRegisterMany(n int, t int) []User{
@@ -545,13 +546,9 @@ type DeadUser struct {
 }	
 
 /*
-**  Register 10 users. Have them chat with each other for a bit.
-**  Register 10 more users. Make sure 3 random pairs can look each
-**  other up. Have 5 users from each group log off. Make sure 3 random
-**  pairs can look each other up. Register 10 more users. Make sure 5
-**  random pairs can look each other up. Have 5 more users log off and
-**  5 others log back on with new IP addresses. Make sure 10 random 
-**  pairs can look each other up
+**  Register 40 users over 10 seconds. 
+**  For 10 rounds, have online users randomly send messages and logoff, and
+**  have offline users randomly log back in, sometimes with a new ip address
 */
 func TestRealLife(t* testing.T) {
 	fmt.Println("Running TestRealLife")
@@ -559,7 +556,7 @@ func TestRealLife(t* testing.T) {
 
 	rounds := 10
 	ipCounter := 40
-	on_users := slowRegisterMany(40, 5)
+	on_users := slowRegisterMany(40, 10)
 	off_users := make([]DeadUser, 0)
 	for r := 0; r<rounds; r++ {
 		for i:=0; i<len(on_users); i++  {
