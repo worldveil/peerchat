@@ -6,7 +6,6 @@ import "encoding/gob"
 import "sync"
 import "net"
 import "log"
-import "fmt"
 import "github.com/pmylund/sortutil"
 
 const UserTag = "USER"
@@ -23,7 +22,7 @@ type User struct {
 	notifications chan *SendMessageArgs
 	dead bool
 	
-	lastSeenMap map[string]time.Time
+	lastSeenMap map[string]int64
 	Current string // the current ser we're chatting with
 }
 
@@ -190,7 +189,7 @@ func MakeUser(username string, ipAddr string) *User{
 	history := make(map[string][]*SendMessageArgs)
 	receivedMessageIdentifiers := make(map[int64]bool)
 	notifications := make(chan *SendMessageArgs, 100000)
-	lastSeenMap := make(map[string]time.Time)
+	lastSeenMap := make(map[string]int64)
 	
 	node := MakeNode(username, ipAddr)
 	user := &User{Node: node, Name: username, PendingMessages: emptyPendingMessages, MessageHistory: history, ReceivedMessageIdentifiers: receivedMessageIdentifiers, notifications: notifications, Current: "", lastSeenMap: lastSeenMap}
@@ -306,7 +305,7 @@ func (user *User) SendMessage(username string, content string) {
 	if _, ok := user.PendingMessages[username]; !ok {
 		user.PendingMessages[username] = make([]*SendMessageArgs, 0)
 	}
-	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now(), ToUsername: username, FromUsername: user.Name, MessageIdentifier: nrand()}
+	pendingMessage := &SendMessageArgs{Content: content, Timestamp: time.Now().Unix(), ToUsername: username, FromUsername: user.Name, MessageIdentifier: nrand()}
 	user.PendingMessages[username] = append(user.PendingMessages[username], pendingMessage)
 	user.MessageHistory[username] = append(user.MessageHistory[username], pendingMessage) 
 	user.mu.Unlock()
@@ -430,35 +429,39 @@ func (user *User) UpdateCurrentPeer(peer string) {
 
 func (user *User) AllMessagesFromUser(other string) []*SendMessageArgs {
 	if messages, ok := user.MessageHistory[other]; ok {
-		sortutil.AscByField(messages, "Timestamp")
 		return messages
 	} 
 	return make([]*SendMessageArgs, 0)
 }
 
-func (user *User) AreNewMessagesFrom(other string) (bool, []*SendMessageArgs) {
+func (user *User) AreNewMessagesFrom(other string) (bool, []SendMessageArgs) {
 	
 	user.mu.Lock()
 	defer user.mu.Unlock()
 	
 	areNew := false
-	newMessages := make([]*SendMessageArgs, 0)
-	mostRecent, _ := time.Parse("2000-01-01 15:23", "1900-01-01 00:00")
+	newMessages := make([]SendMessageArgs, 0)
+	mostRecent := int64(0)
 	if recent, ok := user.lastSeenMap[other]; ok {
 		mostRecent = recent
 	}
 	
 	// get messages in this conversation, and traverse
 	// messages in the conversation in order of timing
-	messages := user.MessageHistory[other]
+	messagePointers := user.MessageHistory[other]
+	
+	messages := make([]SendMessageArgs, 0)
+	for _, msg := range messagePointers {
+		messages = append(messages, *msg)
+	}
+	
 	sortutil.AscByField(messages, "Timestamp")
-	for _, message := range messages {
+	for i := 0; i < len(messages); i++ {
+		message := messages[i]
 		stamp := message.Timestamp
-		
-		fmt.Printf("\r from %s to %s: %v", message.FromUsername, message.ToUsername, message)
-		
+				
 		// http://golang.org/src/pkg/time/time.go?s=2447:2479#L50
-		if stamp.After(mostRecent) {
+		if stamp > mostRecent && message.FromUsername != user.Name {
 			areNew = true
 		}
 		

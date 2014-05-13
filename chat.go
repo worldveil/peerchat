@@ -6,11 +6,32 @@ import "os"
 import "dht"
 import "io/ioutil"
 import "time"
-
+import "github.com/pmylund/sortutil"
 import "path/filepath"
 
 func main() {	
 	startChat()
+	//testsort()
+}
+
+type Thing struct {
+	Field1 int
+	Field2 int64
+}
+
+func testsort() {
+	slice := make([]Thing, 0)
+	for i := 0; i < 19; i++ {
+		thing := Thing{Field1: i, Field2: time.Now().Unix()}
+		slice = append(slice, thing)
+		//time.Sleep(1001 * time.Millisecond)
+	}
+	
+	//print in order
+	sortutil.AscByField(slice, "Field1")
+	for i := 0; i < len(slice); i++ {
+		fmt.Printf("thing: %+v\n", slice[i])
+	}
 }
 
 func input(reader *bufio.Reader) string {
@@ -132,14 +153,13 @@ func startChat() {
 	    	}
 	    }
     }
-    
 }
 
 func paint(user *dht.User) {
 
 	// clear space
 	for j := 1; j < 100; j++ {
-		fmt.Printf("\r                                     \n")
+		fmt.Println("")
 	}
 	
 	// new messages?
@@ -153,24 +173,28 @@ func paint(user *dht.User) {
 	
 	// print users with pending messages
 	for _, peer := range usersWithPendingMessages {
-		fmt.Printf("\rNew message(s) from `%s`!                    \n", peer)
+		fmt.Printf("New message(s) from `%s`!\n", peer)
 	}
-	fmt.Printf("\r                                     \n")
-	fmt.Printf("\r                                     \n")
-	fmt.Printf("\r=========================================\n")
+	fmt.Printf("\n\n========================================\n")
 	
 	// are we current chatting?
 	if user.Current != "" {
-		fmt.Printf("\rConversation with `%s`:                                      \n", user.Current)
-		fmt.Printf("\r                                     \n")
+		fmt.Printf("Conversation with `%s`:\n\n", user.Current)
 		
 		newMessages := user.AllMessagesFromUser(user.Current)
-		for i, _ := range newMessages {
-			msg := newMessages[i]
-			fmt.Printf("\r%s> %s                                      \n", msg.FromUsername, msg.Content)
+		
+		messages := make([]dht.SendMessageArgs, 0)
+		for _, msg := range newMessages {
+			messages = append(messages, *msg)
+		}
+		
+		sortutil.AscByField(messages, "Timestamp")
+		for i := 0; i < len(messages); i++ {
+			msg := messages[i]
+			fmt.Printf("%s[%v]> %s\n", msg.FromUsername, msg.Timestamp, msg.Content)
 		}
 	}
 	
-	fmt.Printf("\r=========================================\n")
-	fmt.Printf("\rme> ")
+	fmt.Printf("=========================================\n")
+	fmt.Printf("me> ")
 }

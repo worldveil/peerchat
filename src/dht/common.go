@@ -1,6 +1,5 @@
 package dht
 
-import "time"
 import "crypto/sha1"
 import "net/rpc"
 import "fmt"
@@ -58,7 +57,7 @@ type ID uint64
 
 type SendMessageArgs struct {
 	Content string
-	Timestamp time.Time
+	Timestamp int64
 	ToUsername string
 	FromUsername string
 	MessageIdentifier int64
