@@ -450,7 +450,7 @@ func TestDualOfflineChat(t* testing.T) {
 	fmt.Println("Running TestDualOfflineChat")
 	defer fmt.Println("Passed!")
 
-	size := 10
+	size := 3
 	users := registerMany(size)
 	defer killAll(users)
 	user0 := users[0]
@@ -465,7 +465,7 @@ func TestDualOfflineChat(t* testing.T) {
 	user1.Logoff()
 	time.Sleep(time.Millisecond*200)
 	user0 = *Login("0", oldip)
-	time.Sleep(time.Millisecond*200)
+	time.Sleep(time.Millisecond*500)
 	fmt.Println(user0.MessageHistory["1"])
 	assertEqual(t, user0.MessageHistory["1"][len(user0.MessageHistory["1"]) - 1].Content, "hello")
 } 
