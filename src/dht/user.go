@@ -153,6 +153,7 @@ func (user *User) Logoff() {
 }
 
 func (user *User) setupUser(){
+	user.dead = false
 	rpcs := user.Node.SetupNode()
 	rpcs.Register(user)
 
@@ -343,21 +344,23 @@ func (user *User) startSender() {
 				
 				ip := user.Node.FindUser(username)
 				status := user.CheckStatus(ip)
+
+				// pop first message args off of slice
+				var args SendMessageArgs
+				if len(user.PendingMessages[username]) == 1 { 
+					args, user.PendingMessages[username] = *user.PendingMessages[username][0], make([]*SendMessageArgs, 0)
+				} else if len(user.PendingMessages[username]) > 1 {
+					// "Pop(0)" slice operation taken from:
+					// https://code.google.com/p/go-wiki/wiki/SliceTricks
+					args, user.PendingMessages[username] = *user.PendingMessages[username][0], user.PendingMessages[username][1:]
+				}
+				
+				// create reply and send to user
+				var reply SendMessageReply
+				
+
 				if status == Online {
-					
-					// pop first message args off of slice
-					var args SendMessageArgs
-					if len(user.PendingMessages[username]) == 1 { 
-						args, user.PendingMessages[username] = *user.PendingMessages[username][0], make([]*SendMessageArgs, 0)
-					} else if len(user.PendingMessages[username]) > 1 {
-						// "Pop(0)" slice operation taken from:
-						// https://code.google.com/p/go-wiki/wiki/SliceTricks
-						args, user.PendingMessages[username] = *user.PendingMessages[username][0], user.PendingMessages[username][1:]
-					}
-					
-					// create reply and send to user
-					var reply SendMessageReply
-					Print(SendingTag, "SenderLoop: Node %v Sending \"%s\" to %s...", user.Name, args.Content, args.ToUsername)
+					Print(SendingTag, "SenderLoop: Node %v Sending \"%s\" to %s...", user.Name, args.Content, args.ToUsername)			
 					// user.pendingMessagesLock.Unlock()
 					// user.messageHistoryLock.Unlock()
 					ok := call(ip, "User.SendMessageHandler", args, &reply)
@@ -372,51 +375,27 @@ func (user *User) startSender() {
 						user.PendingMessages[username] = append(
 							user.PendingMessages[username][:0], 
 							append([]*SendMessageArgs{&args}, user.PendingMessages[username][0:]...)...)
-						//forward to K nearest neighbors
-						kClosestEntryDists := user.Node.FindNearestNodes(Sha1(username))
-						for _, entryDist := range kClosestEntryDists {
-							var replyOther SendMessageReply
-							// user.pendingMessagesLock.Unlock()
-							// user.messageHistoryLock.Unlock()
-							call(entryDist.RoutingEntry.IpAddr, "User.SendMessageHandler", args, &replyOther)
-							// user.pendingMessagesLock.Lock()
-							// user.messageHistoryLock.Lock()
-						}
-						
-						// create reply and send to user
-						var reply SendMessageReply
-						Print(SendingTag, "SenderLoop: Node %v Sending \"%s\" to %s...", user.Name, args.Content, args.ToUsername)
-						// user.pendingMessagesLock.Unlock()
-						// user.messageHistoryLock.Unlock()
-						ok := call(ip, "User.SendMessageHandler", args, &reply)
-						// user.pendingMessagesLock.Lock()
-						// user.messageHistoryLock.Lock()
-						
-						// if our message sending failed, put back on queue
-						if ! ok {
-							// put message back on front of queue and continue
-							// "Insert" slice operation taken from:
-							// https://code.google.com/p/go-wiki/wiki/SliceTricks
-							user.PendingMessages[username] = append(
-								user.PendingMessages[username][:0], 
-								append([]*SendMessageArgs{&args}, user.PendingMessages[username][0:]...)...)
-							
-							//forward to K nearest neighbors
-							kClosestEntryDists := user.Node.FindNearestNodes(Sha1(username))
-							for _, entryDist := range kClosestEntryDists {
-								var replyOther SendMessageReply
-								// user.pendingMessagesLock.Unlock()
-								// user.messageHistoryLock.Unlock()
-								call(entryDist.RoutingEntry.IpAddr, "User.SendMessageHandler", args, &replyOther)
-								// user.pendingMessagesLock.Lock()
-								// user.messageHistoryLock.Lock()
-							}
-						}
 					}
 				} else {
 					Print(SendingTag, "User is offline- wait to send his messages")
+					//forward to K nearest neighbors
+					kClosestEntryDists := user.Node.FindNearestNodes(Sha1(username))
+					for _, entryDist := range kClosestEntryDists {
+						var replyOther SendMessageReply
+						// user.pendingMessagesLock.Unlock()
+						// user.messageHistoryLock.Unlock()
+						go call(entryDist.RoutingEntry.IpAddr, "User.SendMessageHandler", args, &replyOther)
+						// user.pendingMessagesLock.Lock()
+						// user.messageHistoryLock.Lock()
+					}
 					//remove user from KV
 					delete(user.Node.Kv, Sha1(username))
+
+
+					user.PendingMessages[username] = append(
+					user.PendingMessages[username][:0], 
+					append([]*SendMessageArgs{&args}, user.PendingMessages[username][0:]...)...)
+
 					break 
 				}
 			}
