@@ -3,7 +3,6 @@ package dht
 import "time"
 import "os"
 import "encoding/gob"
-import "sync"
 import "net"
 import "log"
 import "github.com/pmylund/sortutil"
@@ -13,8 +12,6 @@ const SendingTag = "SENDING"
 
 type User struct {
 	l net.Listener
-	pendingMessagesLock sync.Mutex
-	messageHistoryLock sync.Mutex
 	Node *DhtNode
 	Name string
 	MessageHistory map[string][]*SendMessageArgs // username => messages we've gotten so far
@@ -267,8 +264,6 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 	if args.ToUsername == user.Name{
 		_, seenBefore := user.ReceivedMessageIdentifiers[args.MessageIdentifier]
 		if ! seenBefore{
-			// user.pendingMessagesLock.Lock()
-			// user.messageHistoryLock.Lock()
 			Print(UserTag, "%s recieved a previously unseen message meant for me!: %s, from %s at %v", user.Name, args.Content, args.FromUsername, args.Timestamp)
 			//initialize entry in messageHistory if first time hearing from user
 			if _, ok := user.MessageHistory[args.FromUsername]; !ok {
@@ -276,8 +271,6 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 			}
 			user.MessageHistory[args.FromUsername] = append(user.MessageHistory[args.FromUsername], args)
 			user.ReceivedMessageIdentifiers[args.MessageIdentifier] = true
-			// user.pendingMessagesLock.Unlock()
-			// user.messageHistoryLock.Unlock()
 			
 			// then notify the UI
 			user.notifications <- args
@@ -286,13 +279,11 @@ func (user *User) SendMessageHandler(args *SendMessageArgs, reply *SendMessageRe
 			Print(UserTag, "%s recieved a previously seen message meant for me! Disregarding: %s, from %s at %v", user.Name, args.Content, args.FromUsername, args.Timestamp)
 		}
 	} else {
-		// user.pendingMessagesLock.Lock()
 		// if not for you -> store in pendingMessages map
 		if _, ok := user.PendingMessages[args.ToUsername]; !ok {
 			user.PendingMessages[args.ToUsername] = make([]*SendMessageArgs, 0)
 		}
 		user.PendingMessages[args.ToUsername] = append(user.PendingMessages[args.ToUsername], args)
-		// user.pendingMessagesLock.Unlock()
 	}
 	
 	// persist to disk
@@ -305,10 +296,6 @@ func (user *User) SendMessage(username string, content string) {
 	/*
 		Sends message with content to username. In offline case, we save the message for later
 	*/
-	// user.pendingMessagesLock.Lock()
-	// user.messageHistoryLock.Lock()
-	// defer user.pendingMessagesLock.Unlock()
-	// defer user.messageHistoryLock.Unlock()
 	Print(UserTag, "Queuing message \"%s\" to %s", content, username)
 	//initilize map entry for a certain user
 	if _, ok := user.PendingMessages[username]; !ok {
@@ -337,8 +324,6 @@ func (user *User) startSender() {
 	*/
 	Print(SendingTag, "Sender process for %s starting...", user.Name)
 	for user.dead == false{
-		// user.pendingMessagesLock.Lock()
-		// user.messageHistoryLock.Lock()
 		for username, _ := range user.PendingMessages {
 			for len(user.PendingMessages[username]) > 0 {
 				
@@ -361,11 +346,7 @@ func (user *User) startSender() {
 
 				if status == Online {
 					Print(SendingTag, "SenderLoop: Node %v Sending \"%s\" to %s...", user.Name, args.Content, args.ToUsername)			
-					// user.pendingMessagesLock.Unlock()
-					// user.messageHistoryLock.Unlock()
 					ok := call(ip, "User.SendMessageHandler", args, &reply)
-					// user.pendingMessagesLock.Lock()
-					// user.messageHistoryLock.Lock()
 					
 					// if our message sending failed, put back on queue
 					if ! ok {
@@ -382,11 +363,7 @@ func (user *User) startSender() {
 					kClosestEntryDists := user.Node.FindNearestNodes(Sha1(username))
 					for _, entryDist := range kClosestEntryDists {
 						var replyOther SendMessageReply
-						// user.pendingMessagesLock.Unlock()
-						// user.messageHistoryLock.Unlock()
 						go call(entryDist.RoutingEntry.IpAddr, "User.SendMessageHandler", args, &replyOther)
-						// user.pendingMessagesLock.Lock()
-						// user.messageHistoryLock.Lock()
 					}
 					//remove user from KV
 					delete(user.Node.Kv, Sha1(username))
@@ -400,8 +377,6 @@ func (user *User) startSender() {
 				}
 			}
 		}
-		// user.pendingMessagesLock.Unlock()
-		// user.messageHistoryLock.Unlock()	
 		// Print(SendingTag, "Sender loop for %s running, pending: %v...", user.Name, user.PendingMessages)
 		time.Sleep(50 * time.Millisecond)
 	}

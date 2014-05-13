@@ -36,8 +36,8 @@ func testsort() {
 
 func input(reader *bufio.Reader) string {
 	input, _ := reader.ReadString('\n')
-    input = input[:len(input)-1]
-    return input
+	input = input[:len(input)-1]
+	return input
 }
 
 func startChat() {
@@ -46,7 +46,7 @@ func startChat() {
 	// load the Peerchat banner
 	content, err := ioutil.ReadFile("peerchat.txt")
 	if err != nil {
-	    //Do something
+		//Do something
 	}
 	fmt.Println(string(content))
 	
@@ -60,19 +60,19 @@ func startChat() {
 	files, _ := filepath.Glob("/tmp/*.gob")
 	userfile := ""
 	user := new(dht.User)
-    for _, file := range files {
-    	if file == dht.UsernameToPath(username) {
-    		userfile = file
-    	}
-    }
-    
-    // did we find the file?
-    if userfile != "" {
-    	// we found this user, load from file
-    	user = dht.Login(username, address)
-    	
-    } else {
-    	// we did not find a matching user
+	for _, file := range files {
+		if file == dht.UsernameToPath(username) {
+			userfile = file
+		}
+	}
+	
+	// did we find the file?
+	if userfile != "" {
+		// we found this user, load from file
+		user = dht.Login(username, address)
+		
+	} else {
+		// we did not find a matching user
 		fmt.Printf("\n[*] Looks like you haven't logged in on this computer before! Would you like to create a new network, or join an existing one?\n")
 		fmt.Printf("Join existing? Type (Y/N):")
 		join := input(reader)
@@ -89,72 +89,72 @@ func startChat() {
 			user = dht.RegisterAndLogin(username, address, "")
 			
 		}
-    }	
-    
-    // we're now logged in with a user
-    fmt.Printf("Connecting to Peerchat")
-    time.Sleep(300 * time.Millisecond)
-    fmt.Printf(".")
-    time.Sleep(300 * time.Millisecond)
-    fmt.Printf(".")
-    time.Sleep(300 * time.Millisecond)
-    fmt.Printf(".\n")
-    
-    // prompt them to chat
-    // fmt.Printf("Connected as user: %+v\n", user)
-    
-    // update loop
-    go func() {
-    	notifications := user.GetNotificationsChannel()
-    	for {
-	    	<- notifications
-	    	paint(user)
-	    }
-    }()
-    
-    // input loop
-    peer := ""
-    for {
-    	// State 1) get a user to chat with
-    	if peer == "" {
-    		fmt.Printf("User to chat with: ")
-    		peer = input(reader)
-    		fmt.Printf("Starting to talk to: %s\n", peer)
-	    	user.UpdateCurrentPeer(peer)
-    		fmt.Printf("me> ")
-    	
-    	// State 2) continue chatting
-    	} else {
-	    
-	    	text := input(reader)
-	    	
-	    	if text == "" {
-	    		// do nothing
-	    		fmt.Printf("%s> \n", peer)
-	    		paint(user)
-	    	
-	    	} else if text[0] == 92 {
-	    		// switching users to chat with
-	    		peer = text[1:]
-	    		fmt.Printf("Swtiching to talk to: %v\n", peer)
-	    		user.UpdateCurrentPeer(peer)
-	    		fmt.Printf("me> ")
-	    		paint(user)
-	    		
-	    		
-	    	} else if text == "exit" {
-	    		// exit peerchat
-	    		fmt.Printf("Exiting Peerchat!\n")
-	    		user.Logoff()
-	    		break
-	    		
-	    	} else {
-	    		// send the message!
-	    		user.SendMessage(user.Current, text)
-	    		paint(user)
-	    	}
-	    }
-    }
+	}	
+	
+	// we're now logged in with a user
+	fmt.Printf("Connecting to Peerchat")
+	time.Sleep(300 * time.Millisecond)
+	fmt.Printf(".")
+	time.Sleep(300 * time.Millisecond)
+	fmt.Printf(".")
+	time.Sleep(300 * time.Millisecond)
+	fmt.Printf(".\n")
+	
+	// prompt them to chat
+	// fmt.Printf("Connected as user: %+v\n", user)
+	
+	// update loop
+	go func() {
+		notifications := user.GetNotificationsChannel()
+		for {
+			<- notifications
+			paint(user)
+		}
+	}()
+	
+	// input loop
+	peer := ""
+	for {
+		// State 1) get a user to chat with
+		if peer == "" {
+			fmt.Printf("User to chat with: ")
+			peer = input(reader)
+			fmt.Printf("Starting to talk to: %s\n", peer)
+			user.UpdateCurrentPeer(peer)
+			fmt.Printf("me> ")
+		
+		// State 2) continue chatting
+		} else {
+		
+			text := input(reader)
+			
+			if text == "" {
+				// do nothing
+				fmt.Printf("%s> \n", peer)
+				paint(user)
+			
+			} else if text[0] == 92 {
+				// switching users to chat with
+				peer = text[1:]
+				fmt.Printf("Swtiching to talk to: %v\n", peer)
+				user.UpdateCurrentPeer(peer)
+				fmt.Printf("me> ")
+				paint(user)
+				
+				
+			} else if text == "exit" {
+				// exit peerchat
+				fmt.Printf("Exiting Peerchat!\n")
+				user.Logoff()
+				break
+				
+			} else {
+				// send the message!
+				user.SendMessage(user.Current, text)
+				paint(user)
+			}
+		}
+	}
 }
 
 func paint(user *dht.User) {
