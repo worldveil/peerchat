@@ -466,7 +466,6 @@ func TestDualOfflineChat(t* testing.T) {
 	time.Sleep(time.Millisecond*200)
 	user0 = *Login("0", oldip)
 	time.Sleep(time.Millisecond*500)
-	fmt.Println(user0.MessageHistory["1"])
 	assertEqual(t, user0.MessageHistory["1"][len(user0.MessageHistory["1"]) - 1].Content, "hello")
 } 
 
