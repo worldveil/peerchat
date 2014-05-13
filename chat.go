@@ -145,6 +145,7 @@ func startChat() {
 	    	} else if text == "exit" {
 	    		// exit peerchat
 	    		fmt.Printf("Exiting Peerchat!\n")
+	    		user.Logoff()
 	    		break
 	    		
 	    	} else {
