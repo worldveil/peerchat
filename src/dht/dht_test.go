@@ -166,11 +166,12 @@ func TestRealLife(t* testing.T) {
 	fmt.Println("Running TestRealLife")
 	defer fmt.Println("Passed!")
 
-	rounds := 10
+	rounds := 5
 	ipCounter := 30
 	on_users := slowRegisterMany(30, 10)
 	off_users := make([]DeadUser, 0)
 	for r := 0; r<rounds; r++ {
+		fmt.Println("Round", r)
 		for i:=0; i<len(on_users); i++  {
 			if len(on_users) <= 3{
 				break
@@ -372,7 +373,7 @@ func TestBasic(t *testing.T) {
 */
 func TestManyRegistrations(t *testing.T) {
 	fmt.Println("Running TestManyRegistrations")	
-	users := registerMany(50)
+	users := registerMany(20)
 	defer killAll(users)
 	for _, user := range users{
 		for _, targetUser := range users{
