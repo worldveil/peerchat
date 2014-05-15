@@ -1,7 +1,7 @@
 peerchat
 =====
 
-Distributed, P2P, realtime chat application written in golang. 
+Distributed, P2P, realtime chat application written in golang for MIT's 6.824 distributed systems class. 
 
 ### Testing
 
